@@ -1,0 +1,4284 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+  <meta charset="UTF-8" />
+  <meta name="viewport" content="width=device-width, initial-scale=1.0" />
+  <title>Elasticsearch Labs — Search Labs Mini Guide (Preview)</title>
+  <style>
+    html, body { margin: 0; padding: 0; }
+    #root:empty::before {
+      content: "Loading preview…";
+      display: block; padding: 40px; font-family: -apple-system, system-ui, sans-serif;
+      color: #6b7280; font-size: 14px;
+    }
+  </style>
+  <script crossorigin src="https://unpkg.com/react@18/umd/react.production.min.js"></script>
+  <script crossorigin src="https://unpkg.com/react-dom@18/umd/react-dom.production.min.js"></script>
+</head>
+<body>
+  <div id="root"></div>
+  <script>
+const {
+  useState,
+  useEffect
+} = React;
+
+/* ============================================================
+   Elasticsearch Labs — Search Labs Mini Guide
+   13-screen implementation, now fully mobile-responsive
+   ============================================================ */
+
+const C = {
+  elasticBlue: '#0B64DD',
+  darkInk: '#1C1E23',
+  teal: '#02BCB7',
+  lightTeal: '#48EFCF',
+  yellow: '#FEC514',
+  pink: '#F04E98',
+  lightGray: '#F5F7FA',
+  mediumGray: '#DCE2EA',
+  darkGray: '#ABB4C4',
+  skyBlue: '#45A8FF',
+  developerBlue: '#101C3F',
+  lime: '#9ADC30',
+  white: '#FFFFFF'
+};
+
+/* --------- useIsMobile hook ---------- */
+function useIsMobile(breakpoint = 768) {
+  const [isMobile, setIsMobile] = useState(false);
+  useEffect(() => {
+    const check = () => setIsMobile(window.innerWidth < breakpoint);
+    check();
+    window.addEventListener('resize', check);
+    return () => window.removeEventListener('resize', check);
+  }, [breakpoint]);
+  return isMobile;
+}
+
+/* --------- Global CSS with media queries ---------- */
+const GlobalStyles = () => {
+  // Load Google Fonts via injected <link> tags — far more reliable than @import
+  // inside a React <style> block (which frequently gets dropped or loads late).
+  useEffect(() => {
+    const links = [{
+      rel: 'preconnect',
+      href: 'https://fonts.googleapis.com'
+    }, {
+      rel: 'preconnect',
+      href: 'https://fonts.gstatic.com',
+      crossOrigin: 'anonymous'
+    }, {
+      rel: 'stylesheet',
+      href: 'https://fonts.googleapis.com/css2?family=Inter:wght@400;500;600;700&family=Space+Grotesk:wght@400;500;600;700&family=Space+Mono:wght@400;700&display=swap'
+    }];
+    const els = links.map(attrs => {
+      const l = document.createElement('link');
+      Object.entries(attrs).forEach(([k, v]) => {
+        if (k === 'crossOrigin') l.crossOrigin = v;else l.setAttribute(k, v);
+      });
+      document.head.appendChild(l);
+      return l;
+    });
+    return () => els.forEach(l => document.head.removeChild(l));
+  }, []);
+  return /*#__PURE__*/React.createElement("style", null, `
+    @import url('https://fonts.googleapis.com/css2?family=Inter:wght@400;500;600;700&family=Space+Grotesk:wght@400;500;600;700&family=Space+Mono:wght@400;700&display=swap');
+    /* Mier B Extrabold is a licensed font (General Type Studio). Once you have the web
+       font files, uncomment this and move 'Mier B' to the front of .font-display below.
+       @font-face {
+         font-family: 'Mier B';
+         src: url('/fonts/MierB-Extrabold.woff2') format('woff2');
+         font-weight: 800; font-style: normal; font-display: swap;
+       }
+    */
+    * { box-sizing: border-box; }
+    body { margin: 0; }
+    .font-sans { font-family: 'Inter', system-ui, sans-serif; }
+    /* Headlines: Space Grotesk now (Mier B is the licensed target — add it to the front
+       of this stack once the font files are loaded). */
+    .font-display { font-family: 'Space Grotesk', 'Inter', system-ui, sans-serif; letter-spacing: -0.01em; }
+    .font-mono { font-family: 'Space Mono', 'Courier New', monospace; }
+
+    /* ============================================================
+       TYPE SYSTEM — maps the compact Search Labs layout onto the
+       official Elastic type ladder (Mier B headings / Inter body).
+       Every heading picks a real rung; nothing invented.
+       Headings use .font-display (Space Grotesk → Mier B when loaded).
+       ============================================================ */
+    .t-h1   { font-family: 'Space Grotesk','Inter',sans-serif; font-weight: 700; font-size: 48px; line-height: 58px; letter-spacing: -0.01em; }
+    .t-h2   { font-family: 'Space Grotesk','Inter',sans-serif; font-weight: 700; font-size: 40px; line-height: 48px; letter-spacing: -0.01em; }
+    .t-h3   { font-family: 'Space Grotesk','Inter',sans-serif; font-weight: 700; font-size: 32px; line-height: 38px; letter-spacing: -0.01em; }
+    .t-h4   { font-family: 'Space Grotesk','Inter',sans-serif; font-weight: 700; font-size: 28px; line-height: 34px; letter-spacing: -0.01em; }
+    .t-h5   { font-family: 'Space Grotesk','Inter',sans-serif; font-weight: 600; font-size: 24px; line-height: 28px; letter-spacing: -0.01em; }
+    .t-h6   { font-family: 'Space Grotesk','Inter',sans-serif; font-weight: 600; font-size: 18px; line-height: 22px; letter-spacing: -0.005em; }
+    .t-topic { font-family: 'Space Mono','Courier New',monospace; font-weight: 700; font-size: 14px; line-height: 24px; text-transform: uppercase; letter-spacing: 0.05em; }
+    .t-body    { font-family: 'Inter',sans-serif; font-weight: 400; font-size: 16px; line-height: 26px; }
+    .t-body-md { font-family: 'Inter',sans-serif; font-weight: 400; font-size: 14px; line-height: 24px; }
+    .t-body-sm { font-family: 'Inter',sans-serif; font-weight: 400; font-size: 12px; line-height: 18px; }
+    .t-quote   { font-family: 'Inter',sans-serif; font-weight: 500; font-size: 18px; line-height: 27px; }
+    .t-link    { font-family: 'Inter',sans-serif; font-weight: 600; font-size: 16px; line-height: 18px; color: ${C.elasticBlue}; }
+
+    /* Mobile type scaling (best-practice: shrink the big display steps hardest,
+       keep body legible at 16/14). Tracks the grid breakpoints 992 / 576. */
+    @media (max-width: 992px) {
+      .t-h1 { font-size: 40px; line-height: 48px; }
+      .t-h2 { font-size: 32px; line-height: 40px; }
+      .t-h3 { font-size: 28px; line-height: 34px; }
+      .t-h4 { font-size: 24px; line-height: 30px; }
+    }
+    @media (max-width: 576px) {
+      .t-h1 { font-size: 32px; line-height: 38px; }
+      .t-h2 { font-size: 26px; line-height: 32px; }
+      .t-h3 { font-size: 24px; line-height: 30px; }
+      .t-h4 { font-size: 22px; line-height: 28px; }
+      .t-h5 { font-size: 20px; line-height: 26px; }
+      .t-h6 { font-size: 16px; line-height: 22px; }
+    }
+
+    /* Max-width container per grid system: XL desktop 1280px, centered */
+    .container-xl { max-width: 1280px; margin-left: auto; margin-right: auto; }
+
+    /* Card titles: no underline by default, underline when the parent card is hovered */
+    .card-title { text-decoration: none; text-underline-offset: 3px; transition: text-decoration 0.1s; }
+    .card-hover:hover .card-title,
+    .featured-large:hover .card-title { text-decoration: underline; }
+    .grid-bg {
+      background-color: ${C.lightGray};
+      background-image:
+        linear-gradient(to right, rgba(28,30,35,0.05) 1px, transparent 1px),
+        linear-gradient(to bottom, rgba(28,30,35,0.05) 1px, transparent 1px);
+      background-size: 24px 24px;
+    }
+    .hover-underline:hover { text-decoration: underline; text-underline-offset: 3px; }
+    button { cursor: pointer; font-family: inherit; }
+    a { color: inherit; text-decoration: none; }
+    /* Global: any link underlines on hover (non-card links everywhere) */
+    a:hover { text-decoration: underline; text-underline-offset: 3px; }
+    .link-underline { text-decoration: underline; text-underline-offset: 3px; }
+
+    /* Glossary term — dotted underline; tooltip appears only on hover/focus */
+    .glossary-term {
+      position: relative; text-decoration: underline; text-underline-offset: 3px;
+      text-decoration-style: dotted; cursor: help;
+    }
+    .glossary-pop {
+      position: absolute; left: 0; top: 100%; margin-top: 8px; z-index: 10;
+      width: 260px; padding: 16px; background: ${C.darkInk}; color: ${C.white};
+      box-shadow: 0 6px 20px rgba(0,0,0,0.18);
+      opacity: 0; visibility: hidden; transform: translateY(-4px);
+      transition: opacity 0.15s ease, transform 0.15s ease, visibility 0.15s;
+    }
+    .glossary-term:hover .glossary-pop,
+    .glossary-term:focus-within .glossary-pop {
+      opacity: 1; visibility: visible; transform: translateY(0);
+    }
+
+    /* ============ TAG (interactive chip) ============
+       Resting: white bg, gray border, ink text. Hover/selected: invert to
+       solid dark fill + white text. Focus: visible ring. Per tag spec. */
+    .tag-chip {
+      display: inline-flex; align-items: center;
+      padding: 6px 8px; border: 1px solid ${C.mediumGray};
+      background: ${C.white}; color: ${C.darkInk};
+      font-family: 'Space Mono','Courier New',monospace;
+      font-size: 11px; text-transform: uppercase; letter-spacing: 0.03em; line-height: 1.1;
+      cursor: pointer; user-select: none;
+      transition: background 0.15s, color 0.15s, border-color 0.15s;
+    }
+    .tag-chip:hover, .tag-chip.is-selected {
+      background: ${C.darkInk}; color: ${C.white}; border-color: ${C.darkInk};
+    }
+    .tag-chip:focus-visible { outline: 2px solid ${C.elasticBlue}; outline-offset: 2px; }
+
+    /* ===== Grid system (elastic brand spec) =====
+       Container caps: XL 1280 / L 992 / Tablet 768 / Mobile 576. Gutter: 32px.
+       Breakpoints below map to those container widths. */
+    .pad-x { padding-left: max(64px, calc((100% - 1280px) / 2)); padding-right: max(64px, calc((100% - 1280px) / 2)); }
+    @media (max-width: 1280px) { .pad-x { padding-left: 48px; padding-right: 48px; } }
+    @media (max-width: 992px)  { .pad-x { padding-left: 32px; padding-right: 32px; } }
+    @media (max-width: 576px)  { .pad-x { padding-left: 20px; padding-right: 20px; } }
+
+    .grid-3 { display: grid; grid-template-columns: repeat(3, 1fr); gap: 32px; }
+    @media (max-width: 992px) { .grid-3 { grid-template-columns: repeat(2, 1fr); } }
+    @media (max-width: 576px)  { .grid-3 { grid-template-columns: 1fr; gap: 24px; } }
+    /* Cards size to their own content instead of stretching to the tallest in the row */
+    .grid-3.grid-top { align-items: start; }
+
+    .grid-2 { display: grid; grid-template-columns: 1fr 1fr; gap: 32px; }
+    @media (max-width: 768px)  { .grid-2 { grid-template-columns: 1fr; gap: 24px; } }
+    /* Examples layout: extra gap so the left column's 8px shadow clears the right panel */
+    .grid-2.examples-cols { gap: 48px; }
+    @media (max-width: 768px) { .grid-2.examples-cols { gap: 32px; } }
+
+    /* hero-title = H1 (48/58). Marker 10px smaller. */
+    .hero-title { font-size: 48px; line-height: 58px; font-weight: 700; }
+    @media (max-width: 992px)  { .hero-title { font-size: 40px; line-height: 48px; } }
+    @media (max-width: 576px)  { .hero-title { font-size: 32px; line-height: 38px; } }
+
+    .hero-subtitle { margin-top: 32px; margin-bottom: 0; }
+    @media (max-width: 576px) { .hero-subtitle { margin-top: 24px; } }
+
+    /* Global card hover state — dark border + 4px offset drop shadow */
+    .card-hover { transition: border-color 0.15s ease, box-shadow 0.15s ease; }
+    .card-hover:hover {
+      border-color: ${C.darkInk} !important;
+      box-shadow: 4px 4px 0 0 ${C.darkInk};
+    }
+
+    /* Examples/Notebook rows: hovering ANYWHERE on the row underlines the title
+       (the whole white area is the primary click target → navigates).
+       Exceptions: hovering a tag or the +/− toggle does NOT underline the title,
+       and those controls handle their own click (stopPropagation). */
+    .exp-item { transition: background 0.15s ease; }
+    .exp-item-title { text-decoration: none; text-underline-offset: 3px; }
+    .exp-item:hover .exp-item-title { text-decoration: underline; }
+    .exp-item:has(.tag-chip:hover) .exp-item-title,
+    .exp-item:has(.exp-item-toggle:hover) .exp-item-title { text-decoration: none; }
+
+    /* + / − toggle: same invert-on-hover as tags (dark fill, white icon) */
+    .exp-item-toggle { transition: background 0.15s, color 0.15s, border-color 0.15s; }
+    .exp-item-toggle:hover { background: ${C.darkInk} !important; color: ${C.white}; border-color: ${C.darkInk} !important; }
+
+    /* CTA buttons — invert on hover (like tags). Two variants:
+       .btn-solid  = filled, inverts to outline on hover
+       .btn-outline = outline, inverts to filled on hover */
+    .btn-solid {
+      background: ${C.white}; color: ${C.darkInk}; border: 1px solid ${C.white};
+      cursor: pointer; transition: background 0.15s, color 0.15s;
+    }
+    .btn-solid:hover { background: transparent; color: ${C.white}; }
+    .btn-outline {
+      background: transparent; color: ${C.white}; border: 1px solid ${C.white};
+      cursor: pointer; transition: background 0.15s, color 0.15s;
+    }
+    .btn-outline:hover { background: ${C.white}; color: ${C.darkInk}; }
+
+    /* "New to Elastic?" callout — distinct striped-panel style, one scale
+       smaller type than the cards. Whole panel is a single link. */
+    .intro-callout {
+      display: block; text-decoration: none; cursor: pointer;
+      background-color: transparent;
+      background-image: repeating-linear-gradient(135deg, rgba(0,0,0,0.20) 0 1px, transparent 1px 6px);
+      max-width: 320px;
+    }
+    .intro-callout__content {
+      background-color: ${C.white}; padding: 16px;
+      display: flex; flex-direction: column; gap: 12px;
+    }
+    .intro-callout__title-row { display: flex; align-items: center; gap: 8px; }
+    .intro-callout__icon { display: inline-flex; width: 18px; height: 18px; flex-shrink: 0; color: ${C.darkInk}; }
+    .intro-callout__title {
+      font-family: 'Space Grotesk','Inter',sans-serif; font-size: 18px; font-weight: 600;
+      line-height: 24px; color: ${C.darkInk}; margin: 0;
+    }
+    .intro-callout__body {
+      font-family: 'Inter',sans-serif; font-size: 14px; line-height: 1.6; color: #2f2f2f; margin: 0;
+    }
+    .intro-callout__cta {
+      font-family: 'Inter',sans-serif; font-size: 12px; font-weight: 500; color: ${C.darkInk};
+      display: inline-flex; align-items: center; gap: 6px; text-decoration: none;
+    }
+    .intro-callout:hover .intro-callout__title { text-decoration: underline; text-underline-offset: 3px; text-decoration-thickness: 1.5px; }
+    .intro-callout:hover .intro-callout__cta { text-decoration: underline; text-decoration-thickness: 1.5px; text-underline-offset: 4px; }
+    .intro-callout:hover .intro-callout__icon { color: #00BFB3; animation: icon-blink-teal 0.5s steps(1, end) forwards; }
+    @keyframes icon-blink-teal {
+      0% { color: ${C.darkInk}; } 25% { color: #00BFB3; } 50% { color: ${C.darkInk}; }
+      75% { color: #00BFB3; } 100% { color: #00BFB3; }
+    }
+
+    /* Callout wrapper + repositionable arrow.
+       Move the WHOLE callout with these vars on .intro-callout-wrap:
+         --callout-x / --callout-y  (px offsets)  e.g. style={{ '--callout-x': '20px', '--callout-y': '-10px' }}
+       Tune the arrow independently with these vars on .intro-callout-arrow:
+         --arrow-x      horizontal offset in px (negative = left, off the panel)
+         --arrow-y      vertical offset in px (negative = up)
+         --arrow-scale  size multiplier (1 = 95x54)
+         --arrow-rotate rotation in deg
+       e.g. style={{ '--arrow-x': '-70px', '--arrow-y': '10px' }} */
+    .intro-callout-wrap {
+      position: relative; display: inline-block;
+      transform: translate(var(--callout-x, 88px), var(--callout-y, 53px));
+    }
+    .intro-callout-arrow {
+      position: absolute;
+      left: var(--arrow-x, -78px);
+      top: var(--arrow-y, -46px);
+      transform: scale(var(--arrow-scale, 1)) rotate(var(--arrow-rotate, 0deg));
+      transform-origin: bottom right;
+      pointer-events: none;
+      display: block;
+      line-height: 0;
+    }
+    @media (max-width: 1280px) { .intro-callout-arrow { display: none; } }
+
+    /* h2-lg = section titles = H2 (40/48) */
+    .h2-lg { font-size: 40px; line-height: 48px; font-weight: 700; }
+    @media (max-width: 992px)  { .h2-lg { font-size: 32px; line-height: 40px; } }
+    @media (max-width: 576px)  { .h2-lg { font-size: 26px; line-height: 32px; } }
+
+    /* // eyebrow markers. Tunable position (defaults from Figma):
+         --slash-size : marker size    --slash-y : vertical px nudge (neg = up)
+         --slash-gap  : space between // and title text
+       Section titles (.slash-marker) = 33px/-6px.
+       Hero / article H1 (.slash-marker-hero) = larger 39px/-8px.
+       Override per-heading inline, e.g. <h1 style={{ '--slash-y': '-4px' }}>. */
+    .slash-marker, .slash-marker-hero {
+      display: inline-block;
+      font-weight: 700;
+      line-height: 1;
+      margin-right: var(--slash-gap, 0.28em);
+    }
+    .slash-marker      { font-size: var(--slash-size, 33px); transform: translateY(var(--slash-y, -6px)); }
+    .slash-marker-hero { font-size: var(--slash-size, 39px); transform: translateY(var(--slash-y, -8px)); }
+    @media (max-width: 992px) {
+      .slash-marker      { font-size: var(--slash-size, 27px); transform: translateY(var(--slash-y, -5px)); }
+      .slash-marker-hero { font-size: var(--slash-size, 32px); transform: translateY(var(--slash-y, -6px)); }
+    }
+    @media (max-width: 576px) {
+      .slash-marker      { font-size: var(--slash-size, 22px); transform: translateY(var(--slash-y, -4px)); }
+      .slash-marker-hero { font-size: var(--slash-size, 26px); transform: translateY(var(--slash-y, -5px)); }
+    }
+
+    /* h2-md = in-article H2 / CTA heading = H3 (32/38) */
+    .h2-md { font-size: 32px; line-height: 38px; font-weight: 700; }
+    @media (max-width: 992px)  { .h2-md { font-size: 28px; line-height: 34px; } }
+    @media (max-width: 576px)  { .h2-md { font-size: 24px; line-height: 30px; } }
+
+    .desktop-only { display: initial; }
+    .mobile-only  { display: none; }
+    @media (max-width: 768px) {
+      .desktop-only { display: none !important; }
+      .mobile-only  { display: initial !important; }
+    }
+
+    .flex-mob-col { display: flex; }
+    @media (max-width: 768px) { .flex-mob-col { flex-direction: column !important; align-items: flex-start !important; } }
+
+    .hide-mob { display: initial; }
+    @media (max-width: 768px) { .hide-mob { display: none !important; } }
+
+    .sidebar-grid { display: grid; grid-template-columns: 240px 1fr; gap: 64px; }
+    @media (max-width: 768px) { .sidebar-grid { grid-template-columns: 1fr; gap: 32px; } }
+
+    .footer-grid { display: grid; grid-template-columns: 2fr 1.5fr 1.5fr; gap: 80px; }
+    @media (max-width: 768px) { .footer-grid { grid-template-columns: 1fr; gap: 40px; } }
+
+    .featured-grid { display: grid; grid-template-columns: 1fr 1fr; gap: 32px; }
+    @media (max-width: 768px) { .featured-grid { grid-template-columns: 1fr; gap: 24px; } }
+
+    /* Side article rows in featured section — hover underlines title, thumbnail hides on mobile */
+    .side-rows { display: flex; flex-direction: column; gap: 0; }
+    .side-row-title { text-decoration: none; text-underline-offset: 3px; }
+    .side-row:hover .side-row-title { text-decoration: underline; }
+    .side-row:last-child { border-bottom: none !important; margin-bottom: 0 !important; padding-bottom: 0 !important; }
+    @media (max-width: 576px) {
+      .side-row { grid-template-columns: 1fr !important; gap: 12px !important; }
+      .side-row-thumb { display: none !important; }
+    }
+
+    .get-started-grid { display: grid; grid-template-columns: 1fr 1fr 380px; gap: 32px; }
+    @media (max-width: 992px) { .get-started-grid { grid-template-columns: 1fr; } }
+
+    .get-started-cards { display: grid; grid-template-columns: 1fr 1fr; gap: 32px; }
+    @media (max-width: 576px) { .get-started-cards { grid-template-columns: 1fr; gap: 16px; } }
+
+    .cta-grid { display: grid; grid-template-columns: 200px 1fr; gap: 48px; }
+    @media (max-width: 768px) { .cta-grid { grid-template-columns: 1fr; gap: 24px; text-align: center; } }
+
+    .author-grid { display: grid; grid-template-columns: 200px 1fr; gap: 32px; }
+    @media (max-width: 768px) { .author-grid { grid-template-columns: 1fr; gap: 24px; } }
+
+    .letters-nav a { font-size: 15px; }
+    @media (max-width: 768px) { .letters-nav { flex-wrap: wrap; gap: 12px !important; } .letters-nav a { font-size: 13px; } }
+
+    .filter-row { display: flex; gap: 12px; align-items: center; flex-wrap: wrap; }
+    @media (max-width: 576px) { .filter-row { gap: 8px; } }
+
+    .header-nav-right { gap: 12px; }
+    @media (max-width: 768px) {
+      .primary-burger { display: flex !important; }
+    }
+    @media (max-width: 480px) { .btn-cta-nav { display: none; } }
+
+    .pagination-row { display: flex; justify-content: center; align-items: center; gap: 8px; flex-wrap: wrap; }
+    @media (max-width: 576px) { .prev-next-label { display: none; } }
+
+    /* ============ BLOG FILTER SYSTEM (per spec) ============ */
+    .blog-filter-area {
+      display: grid;
+      grid-template-columns: 1fr auto;
+      column-gap: 24px;
+      row-gap: 10px;
+      align-items: end;
+    }
+    .blog-filter-by-label {
+      grid-column: 1; grid-row: 1;
+      font-family: 'Space Mono', 'Courier New', monospace;
+      font-size: 12px; font-weight: 500; letter-spacing: 0.1em;
+      text-transform: uppercase; color: #111010;
+      display: inline-flex; align-items: center; gap: 8px;
+    }
+    .blog-filter-by-label::before { content: '/'; color: #69707D; }
+    .blog-filter-row { grid-column: 1; grid-row: 2; display: flex; gap: 16px; flex-wrap: wrap; }
+    .blog-filter-area .blog-sort { grid-column: 2; grid-row: 2; justify-self: end; }
+
+    .blog-filter { position: relative; }
+    .blog-filter-btn {
+      display: inline-flex; align-items: center; gap: 8px;
+      height: 32px; padding: 0 16px;
+      border: 1px solid #000; background: #FFFFFF;
+      font-family: 'Space Mono', 'Courier New', monospace;
+      font-size: 12px; text-transform: uppercase; letter-spacing: 0.08em;
+      color: #111010; cursor: pointer;
+      transition: background 0.15s, color 0.15s;
+      box-shadow: 0 2px 0 0 #000;
+    }
+    .blog-filter-btn:hover { background: #DCE2EA; }
+    .blog-filter.is-open .blog-filter-btn { background: #DCE2EA; }
+
+    .blog-filter-chev { width: 10px; height: 10px; transition: transform 0.18s; flex-shrink: 0; }
+    .blog-filter.is-open .blog-filter-chev { transform: rotate(180deg); }
+
+    .blog-filter-clear {
+      display: none; align-items: center; justify-content: center;
+      width: 16px; height: 16px; margin-right: 8px;
+      border: 1px solid currentColor; background: transparent; color: inherit;
+      cursor: pointer; flex-shrink: 0; transition: background 0.1s, color 0.1s;
+    }
+    .blog-filter.is-filtered .blog-filter-clear { display: inline-flex; background: #DCE2EA; }
+    .blog-filter.is-filtered .blog-filter-clear:hover { background: #FFFFFF; color: #111010; }
+    .blog-filter.is-filtered .blog-filter-label { font-weight: 700; }
+
+    .blog-filter-menu {
+      position: absolute; top: calc(100% + 4px); left: 0;
+      min-width: 240px; white-space: nowrap;
+      background: #FFFFFF; border: 1px solid #111010;
+      display: none; flex-direction: column; z-index: 20;
+      box-shadow: 4px 4px 0 #111010;
+    }
+    .blog-filter.is-open .blog-filter-menu { display: flex; }
+    .blog-filter-opt {
+      display: block; padding: 8px 16px;
+      font-family: 'Space Mono', 'Courier New', monospace;
+      font-size: 12px; text-transform: uppercase; letter-spacing: 0.08em;
+      color: #111010; text-decoration: none;
+      border-bottom: 1px solid #E8E9EC; cursor: pointer;
+      transition: background 0.12s, color 0.12s;
+    }
+    .blog-filter-opt:last-child { border-bottom: none; }
+    .blog-filter-opt:hover { background: #DCE2EA; }
+
+    .blog-filter-opt-wrap { position: relative; }
+    .blog-filter-opt--has-submenu { display: flex; align-items: center; justify-content: space-between; gap: 12px; }
+    .blog-filter-opt-flyarrow { width: 9px; height: 9px; flex-shrink: 0; opacity: 0.5; transition: opacity 0.15s, transform 0.15s; }
+    .blog-filter-opt-wrap:hover .blog-filter-opt-flyarrow,
+    .blog-filter-opt-wrap:focus-within .blog-filter-opt-flyarrow { opacity: 1; transform: translateX(2px); }
+
+    .blog-filter-submenu {
+      position: absolute; left: 100%; top: -2px; margin-left: 6px;
+      min-width: 220px; background: #FFFFFF; border: 1px solid #111010;
+      box-shadow: 4px 4px 0 #111010; display: flex; flex-direction: column; z-index: 50;
+      visibility: hidden; opacity: 0; transform: translateX(-4px);
+      transition: visibility 0s linear 180ms, opacity 140ms ease, transform 140ms ease;
+    }
+    .blog-filter-opt-wrap:hover .blog-filter-submenu,
+    .blog-filter-opt-wrap:focus-within .blog-filter-submenu {
+      visibility: visible; opacity: 1; transform: translateX(0);
+      transition: visibility 0s, opacity 140ms ease, transform 140ms ease;
+    }
+    .blog-filter-opt-wrap::after { content: ''; position: absolute; left: 100%; top: 0; width: 14px; height: 100%; }
+    .blog-filter-opt--child { text-transform: none; letter-spacing: 0.02em; font-size: 12px; padding: 9px 16px; }
+
+    .blog-sort { position: relative; margin-left: auto; }
+    .blog-sort-btn {
+      background: transparent; border: none; padding: 8px 12px;
+      font-family: 'Space Mono', 'Courier New', monospace;
+      font-size: 12px; letter-spacing: 0.08em; text-transform: uppercase;
+      display: inline-flex; align-items: center; gap: 8px; cursor: pointer;
+      color: #111010; white-space: nowrap;
+    }
+    .blog-sort-btn strong { color: #111010; font-weight: 700; }
+    .blog-sort-chev { width: 10px; height: 10px; transition: transform 0.2s ease; }
+    .blog-sort.is-open .blog-sort-chev { transform: rotate(180deg); }
+    .blog-sort-menu {
+      display: none; position: absolute; top: calc(100% + 4px); right: 0;
+      background: #FFFFFF; border: 1px solid #111010; min-width: 180px; z-index: 100;
+      box-shadow: 4px 4px 0 #111010;
+    }
+    .blog-sort.is-open .blog-sort-menu { display: block; }
+    .blog-sort-opt {
+      display: block; padding: 8px 16px;
+      font-family: 'Space Mono', 'Courier New', monospace;
+      font-size: 12px; text-transform: uppercase; letter-spacing: 0.08em;
+      color: #111010; text-decoration: none; border-bottom: 1px solid #E8E9EC; cursor: pointer;
+      transition: background 0.12s, color 0.12s;
+    }
+    .blog-sort-opt:last-child { border-bottom: none; }
+    .blog-sort-opt:hover, .blog-sort-opt.is-active { background: #111010; color: #FFFFFF; }
+
+    @media (max-width: 576px) {
+      .blog-filter-area { grid-template-columns: 1fr; }
+      .blog-filter-area .blog-sort { grid-column: 1; grid-row: 3; justify-self: start; margin-left: 0; margin-top: 8px; }
+      .blog-filter-row { flex-direction: column; align-items: stretch; }
+      .blog-filter-btn { width: 100%; justify-content: space-between; }
+    }
+
+    /* Mobile-only compact secondary bar (hamburger + wordmark, left-aligned).
+       Sticky: primary nav scrolls away, this bar follows the user. */
+    .mnav-bar {
+      position: sticky; top: var(--switcher-h, 0px); z-index: 90;
+      align-items: center; justify-content: flex-start; gap: 12px;
+      padding: 12px 20px; background: ${C.white};
+      border-bottom: 2px solid #02BCB7;
+    }
+    @media (max-width: 768px) { .mnav-bar { display: flex !important; } }
+
+    /* Desktop secondary nav (Elasticsearch Labs) — sticky through scroll;
+       primary nav scrolls away above it. */
+    .secnav-desktop { position: sticky; top: var(--switcher-h, 0px); z-index: 90; }
+    .mnav-bar-wordmark {
+      background: none; border: none; cursor: pointer;
+      font-family: 'Space Mono', monospace; font-size: 16px; color: #000;
+    }
+    /* Secondary-nav hamburger in a rounded gray box (design-system colors),
+       min 40x40 tap target, hover + keyboard focus ring for accessibility. */
+    .mnav-bar-burger {
+      display: flex; align-items: center; justify-content: center;
+      width: 40px; height: 40px; padding: 0;
+      background: ${C.lightGray}; color: ${C.darkInk};
+      border: 1px solid ${C.mediumGray}; border-radius: 8px;
+      cursor: pointer; transition: background 0.15s, border-color 0.15s;
+    }
+    .mnav-bar-burger:hover { background: ${C.mediumGray}; }
+    .mnav-bar-burger:focus-visible { outline: 2px solid ${C.elasticBlue}; outline-offset: 2px; }
+
+    /* ===== Mobile secondary nav — GitHub-style quiet panel ===== */
+    .mnav {
+      position: fixed; top: 0; left: 0; width: 100%; max-width: 390px; height: 100vh;
+      background: ${C.white}; z-index: 200; transform: translateX(-100%);
+      transition: transform .25s ease; box-shadow: 10px 0 30px rgba(0,0,0,0.08);
+      overflow-y: auto; scrollbar-gutter: stable;
+    }
+    .mnav.open { transform: translateX(0); }
+    .drawer-backdrop {
+      position: fixed; inset: 0; background: rgba(0,0,0,0.4); z-index: 199;
+      opacity: 0; pointer-events: none; transition: opacity .2s;
+    }
+    .drawer-backdrop.open { opacity: 1; pointer-events: auto; }
+
+    /* Close on its own row above the title — LEFT-aligned, sitting above the "E",
+       sharing the same 20px left edge as the title and all rows below. */
+    .mnav-closebar {
+      background: ${C.white};
+      display: flex; justify-content: flex-start; padding: 16px 20px 4px;
+    }
+    /* Title row — brand-color underline. Driven by --lab-accent so other labs
+       swap one value (Elasticsearch=teal, Observability=pink, Security=poppy). */
+    .mnav-topbar {
+      --lab-accent: ${C.teal};
+      background: ${C.white};
+      display: flex; align-items: center;
+      padding: 4px 20px 16px; border-bottom: 2px solid var(--lab-accent);
+    }
+    .mnav-title {
+      flex: 1; display: flex; align-items: center; justify-content: space-between;
+      background: none; border: none; cursor: pointer; padding: 0;
+      font-family: 'Space Mono', monospace; font-size: 16px; font-weight: 700; color: ${C.darkInk};
+    }
+    .mnav-title .mnav-chev { transition: transform 0.2s ease; margin-left: 10px; }
+    .mnav-title .mnav-chev.is-open { transform: rotate(180deg); }
+    /* X aligned to the same left edge as text: no extra horizontal padding, icon flush left */
+    .mnav-close { background: none; border: none; color: #57606a; cursor: pointer; display: flex; flex-shrink: 0; padding: 0; margin: 0; }
+
+    /* Sibling-site dropdown — brand-accented, still quiet (white bg, colored left edge) */
+    .mnav-labs-panel { display: flex; flex-direction: column; border-bottom: 1px solid #E3E7EB; }
+    .mnav-labs-panel .mnav-item {
+      padding: 14px 20px; background: ${C.white}; color: ${C.darkInk};
+      border-left: 3px solid transparent;
+      font-family: 'Space Mono', monospace; font-size: 14px;
+      transition: background 0.15s, color 0.15s;
+    }
+    .mnav-labs-obs { border-left-color: ${C.pink} !important; }
+    .mnav-labs-sec { border-left-color: #FF957D !important; }
+    .mnav-labs-obs:hover { background: ${C.pink} !important; color: ${C.white} !important; text-decoration: none; }
+    .mnav-labs-sec:hover { background: #FF957D !important; color: ${C.white} !important; text-decoration: none; }
+
+    /* Content sections — flat quiet rows, hairline divider between each (GitHub) */
+    .mnav-sections { display: flex; flex-direction: column; padding-bottom: 40px; }
+    .mnav-section { border-bottom: 1px solid #E3E7EB; }
+    .mnav-row {
+      width: 100%; display: flex; align-items: center; justify-content: space-between;
+      padding: 18px 20px; background: none; border: none; cursor: pointer;
+      font-family: 'Space Mono', monospace; font-size: 16px; color: ${C.darkInk};
+      transition: background 0.12s;
+    }
+    .mnav-row:hover { background: ${C.lightGray}; }
+    .mnav-chev { display: flex; transition: transform 0.2s ease; color: #57606a; }
+    .mnav-chev.is-open { transform: rotate(180deg); }
+
+    /* Expanded panel — indented, quiet, generous spacing */
+    .mnav-panel {
+      display: flex; flex-direction: column; gap: 20px;
+      padding: 16px 20px 22px 34px;
+    }
+    .mnav-item {
+      text-align: left; background: none; border: none; cursor: pointer;
+      font-family: 'Space Mono', 'Courier New', monospace; font-size: 14px; line-height: 16px; color: #57606a;
+    }
+    .mnav-item:hover { color: ${C.darkInk}; text-decoration: underline; text-underline-offset: 3px; }
+    /* Current L3 page — highlighted in the auto-opened section */
+    .mnav-item.is-current { color: ${C.darkInk}; font-weight: 700; text-decoration: underline; text-underline-offset: 3px; text-decoration-thickness: 2px; text-decoration-color: ${C.teal}; }
+  `);
+};
+
+/* ============ ICONS =========== */
+const Icon = {
+  Search: ({
+    s = 16
+  }) => /*#__PURE__*/React.createElement("svg", {
+    width: s,
+    height: s,
+    viewBox: "0 0 20 20",
+    fill: "none"
+  }, /*#__PURE__*/React.createElement("circle", {
+    cx: "9",
+    cy: "9",
+    r: "6",
+    stroke: "currentColor",
+    strokeWidth: "1.5"
+  }), /*#__PURE__*/React.createElement("path", {
+    d: "M14 14L18 18",
+    stroke: "currentColor",
+    strokeWidth: "1.5",
+    strokeLinecap: "round"
+  })),
+  Right: ({
+    s = 20
+  }) => /*#__PURE__*/React.createElement("svg", {
+    width: s,
+    height: s,
+    viewBox: "0 0 24 24",
+    fill: "none"
+  }, /*#__PURE__*/React.createElement("path", {
+    d: "M4 12H21M21 12L14 5M21 12L14 19",
+    stroke: "currentColor",
+    strokeWidth: "2",
+    strokeLinecap: "round",
+    strokeLinejoin: "round"
+  })),
+  Left: ({
+    s = 20
+  }) => /*#__PURE__*/React.createElement("svg", {
+    width: s,
+    height: s,
+    viewBox: "0 0 24 24",
+    fill: "none"
+  }, /*#__PURE__*/React.createElement("path", {
+    d: "M20 12H3M3 12L10 5M3 12L10 19",
+    stroke: "currentColor",
+    strokeWidth: "2",
+    strokeLinecap: "round",
+    strokeLinejoin: "round"
+  })),
+  Chevron: ({
+    s = 12
+  }) => /*#__PURE__*/React.createElement("svg", {
+    width: s,
+    height: s,
+    viewBox: "0 0 12 8",
+    fill: "none"
+  }, /*#__PURE__*/React.createElement("path", {
+    d: "M1 1L6 6L11 1",
+    stroke: "currentColor",
+    strokeWidth: "1.5",
+    strokeLinecap: "round",
+    strokeLinejoin: "round"
+  })),
+  Heart: ({
+    s = 20
+  }) => /*#__PURE__*/React.createElement("svg", {
+    width: s,
+    height: s,
+    viewBox: "0 0 24 24",
+    fill: "none"
+  }, /*#__PURE__*/React.createElement("path", {
+    d: "M12 21s-7-4.5-9.5-9C1 8 3 4 7 4c2 0 3.5 1 5 3 1.5-2 3-3 5-3 4 0 6 4 4.5 8C19 16.5 12 21 12 21z",
+    stroke: "currentColor",
+    strokeWidth: "1.5",
+    strokeLinejoin: "round"
+  })),
+  Mail: ({
+    s = 18
+  }) => /*#__PURE__*/React.createElement("svg", {
+    width: s,
+    height: s,
+    viewBox: "0 0 24 24",
+    fill: "none"
+  }, /*#__PURE__*/React.createElement("rect", {
+    x: "3",
+    y: "5",
+    width: "18",
+    height: "14",
+    stroke: "currentColor",
+    strokeWidth: "1.5"
+  }), /*#__PURE__*/React.createElement("path", {
+    d: "M3.5 6L12 13L20.5 6",
+    stroke: "currentColor",
+    strokeWidth: "1.5",
+    strokeLinecap: "round",
+    strokeLinejoin: "round"
+  })),
+  Book: ({
+    s = 20
+  }) => /*#__PURE__*/React.createElement("svg", {
+    width: s,
+    height: s,
+    viewBox: "0 0 24 24",
+    fill: "none"
+  }, /*#__PURE__*/React.createElement("path", {
+    d: "M4 4h10v16H6a2 2 0 01-2-2V4z",
+    stroke: "currentColor",
+    strokeWidth: "1.5",
+    strokeLinejoin: "round"
+  }), /*#__PURE__*/React.createElement("path", {
+    d: "M14 4l6 2v14l-6-2",
+    stroke: "currentColor",
+    strokeWidth: "1.5",
+    strokeLinejoin: "round"
+  }), /*#__PURE__*/React.createElement("path", {
+    d: "M7 8h4M7 12h4M7 16h4",
+    stroke: "currentColor",
+    strokeWidth: "1.5",
+    strokeLinecap: "round"
+  })),
+  Plug: ({
+    s = 20
+  }) => /*#__PURE__*/React.createElement("svg", {
+    width: s,
+    height: s,
+    viewBox: "0 0 24 24",
+    fill: "none"
+  }, /*#__PURE__*/React.createElement("path", {
+    d: "M9 3v4M15 3v4M6 7h12v6a6 6 0 01-12 0V7zM12 19v3",
+    stroke: "currentColor",
+    strokeWidth: "1.5",
+    strokeLinecap: "round"
+  })),
+  Pen: ({
+    s = 20
+  }) => /*#__PURE__*/React.createElement("svg", {
+    width: s,
+    height: s,
+    viewBox: "0 0 24 24",
+    fill: "none"
+  }, /*#__PURE__*/React.createElement("path", {
+    d: "M15 4l5 5-11 11H4v-5L15 4z",
+    stroke: "currentColor",
+    strokeWidth: "1.5",
+    strokeLinejoin: "round"
+  })),
+  Star: ({
+    s = 20
+  }) => /*#__PURE__*/React.createElement("svg", {
+    width: s,
+    height: s,
+    viewBox: "0 0 24 24",
+    fill: "none"
+  }, /*#__PURE__*/React.createElement("path", {
+    d: "M12 2l3 7h7l-5.5 4.5L18 21l-6-4-6 4 1.5-7.5L2 9h7l3-7z",
+    stroke: "currentColor",
+    strokeWidth: "1.5",
+    strokeLinejoin: "round"
+  })),
+  Filter: ({
+    s = 20
+  }) => /*#__PURE__*/React.createElement("svg", {
+    width: s,
+    height: s,
+    viewBox: "0 0 24 24",
+    fill: "none"
+  }, /*#__PURE__*/React.createElement("path", {
+    d: "M3 5h18l-7 8v6l-4 2v-8L3 5z",
+    stroke: "currentColor",
+    strokeWidth: "1.5",
+    strokeLinejoin: "round"
+  })),
+  Chat: ({
+    s = 20
+  }) => /*#__PURE__*/React.createElement("svg", {
+    width: s,
+    height: s,
+    viewBox: "0 0 24 24",
+    fill: "none"
+  }, /*#__PURE__*/React.createElement("path", {
+    d: "M4 4h16v13H8l-4 4V4z",
+    stroke: "currentColor",
+    strokeWidth: "1.5",
+    strokeLinejoin: "round"
+  })),
+  Hands: ({
+    s = 20
+  }) => /*#__PURE__*/React.createElement("svg", {
+    width: s,
+    height: s,
+    viewBox: "0 0 24 24",
+    fill: "none"
+  }, /*#__PURE__*/React.createElement("path", {
+    d: "M8 11V4a2 2 0 114 0v6M12 10V3a2 2 0 114 0v8M16 11V6a2 2 0 114 0v10a5 5 0 01-5 5H10a5 5 0 01-5-5v-3l-2-3a1.5 1.5 0 012.5-1.5L8 11",
+    stroke: "currentColor",
+    strokeWidth: "1.5",
+    strokeLinejoin: "round",
+    strokeLinecap: "round"
+  })),
+  Download: ({
+    s = 20
+  }) => /*#__PURE__*/React.createElement("svg", {
+    width: s,
+    height: s,
+    viewBox: "0 0 24 24",
+    fill: "none"
+  }, /*#__PURE__*/React.createElement("path", {
+    d: "M12 3v13m0 0l-5-5m5 5l5-5M4 20h16",
+    stroke: "currentColor",
+    strokeWidth: "1.5",
+    strokeLinecap: "round",
+    strokeLinejoin: "round"
+  })),
+  GitHub: ({
+    s = 16
+  }) => /*#__PURE__*/React.createElement("svg", {
+    width: s,
+    height: s,
+    viewBox: "0 0 24 24",
+    fill: "currentColor"
+  }, /*#__PURE__*/React.createElement("path", {
+    d: "M12 .3a12 12 0 00-3.8 23.4c.6.1.8-.3.8-.6v-2.2c-3.3.7-4-1.4-4-1.4-.6-1.4-1.4-1.8-1.4-1.8-1.1-.7.1-.7.1-.7 1.2.1 1.9 1.3 1.9 1.3 1.1 1.9 2.9 1.3 3.6 1 .1-.8.4-1.3.8-1.6-2.7-.3-5.5-1.3-5.5-6a4.7 4.7 0 011.3-3.3c-.1-.4-.6-1.6.1-3.2 0 0 1-.3 3.4 1.2a11.5 11.5 0 016 0C17.3 4.7 18.3 5 18.3 5c.7 1.6.2 2.8.1 3.2.8.9 1.3 2 1.3 3.3 0 4.7-2.8 5.7-5.5 6 .5.3.9 1 .9 2v3c0 .3.2.7.8.6A12 12 0 0012 .3"
+  })),
+  Twitter: ({
+    s = 16
+  }) => /*#__PURE__*/React.createElement("svg", {
+    width: s,
+    height: s,
+    viewBox: "0 0 24 24",
+    fill: "currentColor"
+  }, /*#__PURE__*/React.createElement("path", {
+    d: "M18.2 2H21l-6.6 7.5L22 22h-6.7l-5.2-6.8L4.2 22H1.4l7-8-7-12h6.8l4.7 6.2L18.2 2zm-1.2 18h1.6L7 4H5.3l11.7 16z"
+  })),
+  Rss: ({
+    s = 16
+  }) => /*#__PURE__*/React.createElement("svg", {
+    width: s,
+    height: s,
+    viewBox: "0 0 24 24",
+    fill: "currentColor"
+  }, /*#__PURE__*/React.createElement("path", {
+    d: "M6.2 15.8a2 2 0 100 4 2 2 0 000-4zM4 4v3a13 13 0 0113 13h3A16 16 0 004 4zm0 6v3a7 7 0 017 7h3a10 10 0 00-10-10z"
+  })),
+  Add: ({
+    s = 13
+  }) => /*#__PURE__*/React.createElement("svg", {
+    width: s,
+    height: s,
+    viewBox: "0 0 14 14",
+    fill: "none"
+  }, /*#__PURE__*/React.createElement("path", {
+    d: "M7 1v12M1 7h12",
+    stroke: "currentColor",
+    strokeWidth: "1.5",
+    strokeLinecap: "round"
+  })),
+  Minus: ({
+    s = 13
+  }) => /*#__PURE__*/React.createElement("svg", {
+    width: s,
+    height: s,
+    viewBox: "0 0 14 14",
+    fill: "none"
+  }, /*#__PURE__*/React.createElement("path", {
+    d: "M1 7h12",
+    stroke: "currentColor",
+    strokeWidth: "1.5",
+    strokeLinecap: "round"
+  })),
+  External: ({
+    s = 10
+  }) => /*#__PURE__*/React.createElement("svg", {
+    width: s,
+    height: s,
+    viewBox: "0 0 10 10",
+    fill: "none"
+  }, /*#__PURE__*/React.createElement("path", {
+    d: "M3 1h6v6M9 1L1 9",
+    stroke: "currentColor",
+    strokeWidth: "1.2",
+    strokeLinecap: "round",
+    strokeLinejoin: "round"
+  })),
+  Burger: ({
+    s = 22
+  }) => /*#__PURE__*/React.createElement("svg", {
+    width: s,
+    height: s,
+    viewBox: "0 0 22 22",
+    fill: "none"
+  }, /*#__PURE__*/React.createElement("path", {
+    d: "M3 6h16M3 11h16M3 16h16",
+    stroke: "currentColor",
+    strokeWidth: "1.8",
+    strokeLinecap: "round"
+  })),
+  Close: ({
+    s = 22
+  }) => /*#__PURE__*/React.createElement("svg", {
+    width: s,
+    height: s,
+    viewBox: "0 0 22 22",
+    fill: "none"
+  }, /*#__PURE__*/React.createElement("path", {
+    d: "M5 5l12 12M17 5L5 17",
+    stroke: "currentColor",
+    strokeWidth: "1.8",
+    strokeLinecap: "round"
+  }))
+};
+
+/* ============ LOGO =========== */
+const ElasticLogo = ({
+  mono = false,
+  s = 32
+}) => {
+  return /*#__PURE__*/React.createElement("div", {
+    style: {
+      display: 'flex',
+      alignItems: 'center',
+      gap: 8
+    }
+  }, /*#__PURE__*/React.createElement("div", {
+    style: {
+      width: s,
+      height: s,
+      background: mono ? 'rgba(255,255,255,0.25)' : C.mediumGray,
+      border: `1px solid ${mono ? 'rgba(255,255,255,0.4)' : C.darkGray}`,
+      flexShrink: 0
+    }
+  }), /*#__PURE__*/React.createElement("span", {
+    style: {
+      fontFamily: 'Inter',
+      fontWeight: 500,
+      fontSize: 22,
+      color: mono ? C.white : C.darkInk
+    }
+  }, "elastic"));
+};
+
+/* ============ LABS ORB =========== */
+const LabsOrb = ({
+  s = 120
+}) => /*#__PURE__*/React.createElement("svg", {
+  width: s,
+  height: s,
+  viewBox: "0 0 120 120",
+  style: {
+    overflow: 'visible'
+  }
+}, /*#__PURE__*/React.createElement("ellipse", {
+  cx: "60",
+  cy: "60",
+  rx: "55",
+  ry: "30",
+  stroke: C.darkInk,
+  strokeWidth: "1.2",
+  fill: "none",
+  transform: "rotate(-30 60 60)"
+}), /*#__PURE__*/React.createElement("ellipse", {
+  cx: "60",
+  cy: "60",
+  rx: "55",
+  ry: "30",
+  stroke: C.darkInk,
+  strokeWidth: "1.2",
+  fill: "none",
+  transform: "rotate(30 60 60)"
+}), /*#__PURE__*/React.createElement("text", {
+  x: "60",
+  y: "66",
+  textAnchor: "middle",
+  fontFamily: "Space Mono, monospace",
+  fontSize: "12",
+  fontWeight: "700",
+  fill: C.darkInk
+}, "LABS"));
+
+/* ============ TAG (interactive chip, per behavior spec) ===========
+   Pattern A: span with role=link + tabindex, inline click that
+   stopPropagation()s so it doesn't trigger the parent card link.
+   Navigates to the category/tag page. Keyboard: Enter/Space. */
+const Tag = ({
+  children,
+  onNav,
+  selected = false
+}) => {
+  const go = e => {
+    e.preventDefault();
+    e.stopPropagation();
+    if (onNav) onNav('category');
+  };
+  return /*#__PURE__*/React.createElement("span", {
+    className: `tag-chip${selected ? ' is-selected' : ''}`,
+    role: "link",
+    tabIndex: 0,
+    onClick: go,
+    onKeyDown: e => {
+      if (e.key === 'Enter' || e.key === ' ') go(e);
+    }
+  }, children);
+};
+
+/* ============ SECTION EYEBROW ===========
+   slashY: optional px string to nudge the // vertically, e.g. slashY="-4px"
+   slashGap / slashSize: optional overrides for gap and marker size. */
+const SectionTitle = ({
+  children,
+  mobileSize,
+  slashY,
+  slashGap,
+  slashSize
+}) => {
+  const vars = {};
+  if (slashY) vars['--slash-y'] = slashY;
+  if (slashGap) vars['--slash-gap'] = slashGap;
+  if (slashSize) vars['--slash-size'] = slashSize;
+  return /*#__PURE__*/React.createElement("h2", {
+    className: "font-display h2-lg",
+    style: {
+      color: C.darkInk,
+      margin: 0,
+      lineHeight: 1,
+      ...vars
+    }
+  }, /*#__PURE__*/React.createElement("span", {
+    className: "slash-marker",
+    style: {
+      color: C.teal
+    }
+  }, "//"), children);
+};
+
+/* ============ TOP UTILITY STRIP =========== */
+const TopStrip = () => /*#__PURE__*/React.createElement("div", {
+  className: "font-sans pad-x hide-mob",
+  style: {
+    background: C.white,
+    borderBottom: `1px solid ${C.mediumGray}`,
+    fontSize: 12,
+    color: C.darkInk,
+    paddingTop: '8px',
+    paddingBottom: '8px',
+    display: 'flex',
+    justifyContent: 'space-between',
+    alignItems: 'center'
+  }
+}, /*#__PURE__*/React.createElement("div", null, "Elastic Stack 8.18.2 released. ", /*#__PURE__*/React.createElement("a", {
+  href: "#",
+  style: {
+    fontWeight: 600
+  },
+  className: "link-underline"
+}, "Read more")), /*#__PURE__*/React.createElement("div", {
+  style: {
+    display: 'flex',
+    gap: 24,
+    alignItems: 'center'
+  }
+}, /*#__PURE__*/React.createElement("a", {
+  href: "#",
+  className: "hover-underline"
+}, "About Us"), /*#__PURE__*/React.createElement("a", {
+  href: "#",
+  className: "hover-underline"
+}, "Partners"), /*#__PURE__*/React.createElement("a", {
+  href: "#",
+  className: "hover-underline"
+}, "Support"), /*#__PURE__*/React.createElement("a", {
+  href: "#",
+  style: {
+    display: 'flex',
+    alignItems: 'center',
+    gap: 4
+  },
+  className: "hover-underline"
+}, "English ", /*#__PURE__*/React.createElement(Icon.Chevron, {
+  s: 10
+})), /*#__PURE__*/React.createElement("a", {
+  href: "#",
+  className: "hover-underline"
+}, "Log in")));
+
+/* ============ MOBILE DRAWER =========== */
+/* ============ MOBILE SECONDARY NAV (accordion) ===========
+   Built from Figma node 3207:6412. Utility bar → brand header →
+   four accordion sections (Tutorials/Integrations/Blogs/Examples),
+   one open at a time. Literal Figma hex kept for fidelity. */
+const NAV_ACCORDION = [{
+  key: 'tutorials',
+  label: 'Tutorials',
+  page: 'tutorials',
+  items: ['Overview', 'Install Elasticsearch', 'Search Tutorial', 'Chatbot Tutorial', 'Jina Tutorial']
+}, {
+  key: 'integrations',
+  label: 'Integrations',
+  page: 'integrations',
+  items: ['Overview', 'Alibaba Cloud', 'Amazon Bedrock', 'Anthropic', 'Aryn', 'Cohere', 'Google Vertex AI', 'Hugging Face', 'IBM watsonx', 'Jina AI', 'LangChain', 'LlamaIndex', 'Microsoft Azure AI', 'Mistral', 'NVIDIA', 'OpenAI', 'Red Hat', 'Unstructured.io', 'Vectorize.io']
+}, {
+  key: 'blogs',
+  label: 'Blogs',
+  page: 'blog',
+  items: ['All Blogs', '.NET', 'AI', 'AI tools', 'Agentic AI', 'Analytics', 'AutoOps', 'Basics', 'Developer Experience', 'ES|QL', 'Elastic Cloud Hosted', 'Elastic Cloud Serverless', 'Go', 'Hybrid Search', 'Index Data', 'Inside Elastic', 'Integrations', 'Java', 'Javascript', 'Jina AI', 'Kibana', 'Kubernetes', 'Lucene', 'ML Research', 'Mappings', 'Operations', 'PHP', 'Python', 'Query DSL', 'Query Languages', 'Relevance', 'Ruby', 'Vector Database']
+}, {
+  key: 'examples',
+  label: 'Examples',
+  page: 'examples',
+  items: ['Overview', 'Prompt Library', 'Apps', 'Notebooks', 'Glossary']
+}];
+
+/* Maps each router page → which L2 section should auto-open in the mobile menu,
+   and which L3 item (if any) should be highlighted. L1/L2 pages map to their
+   own section + Overview; L3 detail pages map to their parent section. */
+const PAGE_TO_NAV = {
+  // L2 section landing pages
+  tutorials: {
+    section: 'tutorials',
+    item: 'Overview'
+  },
+  integrations: {
+    section: 'integrations',
+    item: 'Overview'
+  },
+  blog: {
+    section: 'blogs',
+    item: 'All Blogs'
+  },
+  examples: {
+    section: 'examples',
+    item: 'Overview'
+  },
+  // L3 pages under Blogs
+  blogArticle: {
+    section: 'blogs'
+  },
+  blogArticle2: {
+    section: 'blogs'
+  },
+  blogArticle3: {
+    section: 'blogs'
+  },
+  blogSeries: {
+    section: 'blogs'
+  },
+  category: {
+    section: 'blogs'
+  },
+  // L3 under Examples
+  glossary: {
+    section: 'examples',
+    item: 'Glossary'
+  },
+  // L3 under Integrations
+  integrationDetail: {
+    section: 'integrations',
+    item: 'Cohere'
+  }
+};
+const MobileDrawer = ({
+  open,
+  onClose,
+  onNav,
+  currentPage
+}) => {
+  const current = PAGE_TO_NAV[currentPage] || {};
+  const [openSection, setOpenSection] = useState(null); // one open at a time
+  const [labsOpen, setLabsOpen] = useState(false); // Elasticsearch LABS sibling-sites dropdown
+  const closeAnd = p => {
+    onNav(p);
+    onClose();
+  };
+
+  // When the menu opens, auto-open the section for the page you're on.
+  useEffect(() => {
+    if (open) setOpenSection(current.section || null);
+  }, [open, current.section]);
+  return /*#__PURE__*/React.createElement(React.Fragment, null, /*#__PURE__*/React.createElement("div", {
+    className: `drawer-backdrop ${open ? 'open' : ''}`,
+    onClick: onClose
+  }), /*#__PURE__*/React.createElement("div", {
+    className: `mnav ${open ? 'open' : ''}`
+  }, /*#__PURE__*/React.createElement("div", {
+    className: "mnav-closebar"
+  }, /*#__PURE__*/React.createElement("button", {
+    className: "mnav-close",
+    onClick: onClose,
+    "aria-label": "Close menu"
+  }, /*#__PURE__*/React.createElement(Icon.Close, {
+    s: 18
+  }))), /*#__PURE__*/React.createElement("div", {
+    className: "mnav-topbar"
+  }, /*#__PURE__*/React.createElement("button", {
+    className: `mnav-title${labsOpen ? ' is-open' : ''}`,
+    onClick: () => setLabsOpen(v => !v),
+    "aria-expanded": labsOpen
+  }, /*#__PURE__*/React.createElement("span", null, "Elasticsearch LABS"), /*#__PURE__*/React.createElement("span", {
+    className: `mnav-chev${labsOpen ? ' is-open' : ''}`
+  }, /*#__PURE__*/React.createElement(Icon.Chevron, {
+    s: 14
+  })))), labsOpen && /*#__PURE__*/React.createElement("div", {
+    className: "mnav-labs-panel"
+  }, /*#__PURE__*/React.createElement("button", {
+    className: "mnav-item mnav-labs-obs",
+    onClick: () => closeAnd('home')
+  }, "Observability Labs"), /*#__PURE__*/React.createElement("button", {
+    className: "mnav-item mnav-labs-sec",
+    onClick: () => closeAnd('home')
+  }, "Security Labs")), /*#__PURE__*/React.createElement("div", {
+    className: "mnav-sections"
+  }, NAV_ACCORDION.map(sec => {
+    const isOpen = openSection === sec.key;
+    return /*#__PURE__*/React.createElement("div", {
+      key: sec.key,
+      className: "mnav-section"
+    }, /*#__PURE__*/React.createElement("button", {
+      className: `mnav-row${isOpen ? ' is-open' : ''}`,
+      onClick: () => setOpenSection(isOpen ? null : sec.key),
+      "aria-expanded": isOpen
+    }, /*#__PURE__*/React.createElement("span", null, sec.label), /*#__PURE__*/React.createElement("span", {
+      className: `mnav-chev${isOpen ? ' is-open' : ''}`
+    }, /*#__PURE__*/React.createElement(Icon.Chevron, {
+      s: 14
+    }))), isOpen && /*#__PURE__*/React.createElement("div", {
+      className: "mnav-panel"
+    }, sec.items.map(item => {
+      const isCurrent = current.section === sec.key && current.item === item;
+      return /*#__PURE__*/React.createElement("button", {
+        key: item,
+        className: `mnav-item${isCurrent ? ' is-current' : ''}`,
+        "aria-current": isCurrent ? 'page' : undefined,
+        onClick: () => closeAnd(sec.page)
+      }, item);
+    })));
+  }))));
+};
+
+/* ============ MAIN NAV =========== */
+const MainNav = ({
+  onNav,
+  currentPage,
+  isMobile
+}) => {
+  const [drawerOpen, setDrawerOpen] = useState(false);
+  const contentItems = [{
+    key: 'blog',
+    label: 'Blog'
+  }, {
+    key: 'tutorials',
+    label: 'Tutorials'
+  }, {
+    key: 'examples',
+    label: 'Examples'
+  }, {
+    key: 'integrations',
+    label: 'Integrations'
+  }];
+  const activeSection = ['blog', 'blogArticle', 'blogArticle2', 'blogArticle3', 'blogSeries', 'category', 'author'].includes(currentPage) ? 'blog' : currentPage === 'tutorials' ? 'tutorials' : ['examples', 'glossary'].includes(currentPage) ? 'examples' : ['integrations', 'integrationDetail'].includes(currentPage) ? 'integrations' : null;
+  return /*#__PURE__*/React.createElement(React.Fragment, null, /*#__PURE__*/React.createElement(TopStrip, null), /*#__PURE__*/React.createElement("div", {
+    className: "font-sans pad-x",
+    style: {
+      background: C.white,
+      paddingTop: '16px',
+      paddingBottom: '16px',
+      display: 'flex',
+      justifyContent: 'space-between',
+      alignItems: 'center'
+    }
+  }, /*#__PURE__*/React.createElement("div", {
+    style: {
+      display: 'flex',
+      alignItems: 'center',
+      gap: 48
+    }
+  }, /*#__PURE__*/React.createElement("button", {
+    onClick: () => onNav('home'),
+    style: {
+      background: 'none',
+      border: 'none',
+      padding: 0
+    }
+  }, /*#__PURE__*/React.createElement(ElasticLogo, null)), /*#__PURE__*/React.createElement("nav", {
+    className: "hide-mob",
+    style: {
+      display: 'flex',
+      gap: 28,
+      fontSize: 14,
+      fontWeight: 500,
+      color: C.darkInk
+    }
+  }, ['Elasticsearch', 'Solutions', 'Enterprise', 'Resources', 'Pricing'].map(it => /*#__PURE__*/React.createElement("a", {
+    href: "#",
+    key: it,
+    className: "hover-underline"
+  }, it)))), /*#__PURE__*/React.createElement("div", {
+    style: {
+      display: 'flex',
+      gap: 12,
+      alignItems: 'center'
+    }
+  }, /*#__PURE__*/React.createElement("button", {
+    onClick: () => onNav('home'),
+    "aria-label": "Search",
+    style: {
+      display: 'flex',
+      background: 'none',
+      border: 'none',
+      color: C.darkInk,
+      padding: 8,
+      cursor: 'pointer'
+    }
+  }, /*#__PURE__*/React.createElement(Icon.Search, {
+    s: 20
+  })), /*#__PURE__*/React.createElement("button", {
+    className: "btn-cta-nav",
+    onClick: () => onNav('home'),
+    style: {
+      background: C.elasticBlue,
+      color: C.white,
+      border: 'none',
+      padding: '10px 20px',
+      borderRadius: 999,
+      fontSize: 14,
+      fontWeight: 600
+    }
+  }, "Get started"), /*#__PURE__*/React.createElement("button", {
+    className: "primary-burger",
+    onClick: () => setDrawerOpen(true),
+    "aria-label": "Open menu",
+    style: {
+      display: 'none',
+      background: 'none',
+      border: 'none',
+      color: C.darkInk,
+      padding: 8,
+      cursor: 'pointer'
+    }
+  }, /*#__PURE__*/React.createElement(Icon.Burger, {
+    s: 22
+  })))), /*#__PURE__*/React.createElement("div", {
+    className: "hide-mob font-mono pad-x secnav-desktop",
+    style: {
+      background: C.white,
+      paddingTop: '8px',
+      paddingBottom: '16px',
+      display: 'flex',
+      justifyContent: 'space-between',
+      borderBottom: `1px solid ${C.mediumGray}`,
+      gap: 16
+    }
+  }, /*#__PURE__*/React.createElement("div", {
+    style: {
+      display: 'flex',
+      gap: 4,
+      flexShrink: 0,
+      marginLeft: -12
+    }
+  }, ['Elasticsearch LABS', 'Observability LABS', 'Security LABS'].map((label, i) => /*#__PURE__*/React.createElement("button", {
+    key: label,
+    onClick: () => onNav('home'),
+    style: {
+      padding: '8px 12px',
+      border: 'none',
+      background: 'none',
+      textDecoration: i === 0 ? 'underline' : 'none',
+      textUnderlineOffset: 6,
+      textDecorationThickness: 2,
+      fontSize: 13,
+      color: C.darkInk,
+      whiteSpace: 'nowrap'
+    }
+  }, label))), /*#__PURE__*/React.createElement("div", {
+    style: {
+      display: 'flex',
+      gap: 4,
+      flexShrink: 0,
+      marginRight: -12
+    }
+  }, contentItems.map(it => /*#__PURE__*/React.createElement("button", {
+    key: it.key,
+    onClick: () => onNav(it.key),
+    style: {
+      padding: '8px 12px',
+      border: 'none',
+      background: activeSection === it.key ? C.lightGray : 'none',
+      textDecoration: activeSection === it.key ? 'underline' : 'none',
+      textUnderlineOffset: 6,
+      textDecorationThickness: 2,
+      fontSize: 13,
+      color: C.darkInk,
+      whiteSpace: 'nowrap'
+    }
+  }, it.label)))), /*#__PURE__*/React.createElement("div", {
+    className: "mnav-bar",
+    style: {
+      display: 'none'
+    }
+  }, /*#__PURE__*/React.createElement("button", {
+    onClick: () => setDrawerOpen(true),
+    className: "mnav-bar-burger",
+    "aria-label": "Open Labs menu"
+  }, /*#__PURE__*/React.createElement(Icon.Burger, {
+    s: 22
+  })), /*#__PURE__*/React.createElement("button", {
+    onClick: () => onNav('home'),
+    className: "mnav-bar-wordmark"
+  }, "Elasticsearch LABS")), /*#__PURE__*/React.createElement(MobileDrawer, {
+    open: drawerOpen,
+    onClose: () => setDrawerOpen(false),
+    onNav: onNav,
+    currentPage: currentPage
+  }));
+};
+
+/* ============ FOOTER =========== */
+const FooterPattern = () => /*#__PURE__*/React.createElement("div", {
+  style: {
+    background: C.lightGray,
+    height: 100,
+    overflow: 'hidden',
+    position: 'relative'
+  }
+}, /*#__PURE__*/React.createElement("svg", {
+  width: "100%",
+  height: "100",
+  viewBox: "0 0 1512 100",
+  preserveAspectRatio: "none",
+  style: {
+    opacity: 0.3
+  }
+}, Array.from({
+  length: 8
+}).map((_, i) => /*#__PURE__*/React.createElement("g", {
+  key: i,
+  transform: `translate(${i * 200}, 20)`
+}, /*#__PURE__*/React.createElement("circle", {
+  cx: "20",
+  cy: "40",
+  r: "12",
+  stroke: C.darkGray,
+  strokeWidth: "1.5",
+  fill: "none"
+}), /*#__PURE__*/React.createElement("rect", {
+  x: "45",
+  y: "30",
+  width: "30",
+  height: "20",
+  stroke: C.darkGray,
+  strokeWidth: "1.5",
+  fill: "none"
+}), /*#__PURE__*/React.createElement("line", {
+  x1: "75",
+  y1: "40",
+  x2: "100",
+  y2: "40",
+  stroke: C.darkGray,
+  strokeWidth: "1.5"
+}), /*#__PURE__*/React.createElement("path", {
+  d: "M100 40 Q 115 20 130 40 T 160 40",
+  stroke: C.darkGray,
+  strokeWidth: "1.5",
+  fill: "none"
+}), /*#__PURE__*/React.createElement("rect", {
+  x: "170",
+  y: "30",
+  width: "18",
+  height: "18",
+  transform: "rotate(45 179 39)",
+  stroke: C.darkGray,
+  strokeWidth: "1.5",
+  fill: "none"
+})))));
+const Footer = () => /*#__PURE__*/React.createElement(React.Fragment, null, /*#__PURE__*/React.createElement(FooterPattern, null), /*#__PURE__*/React.createElement("footer", {
+  className: "font-sans pad-x",
+  style: {
+    background: C.darkInk,
+    color: C.white,
+    paddingTop: '64px',
+    paddingBottom: '40px'
+  }
+}, /*#__PURE__*/React.createElement("div", {
+  className: "footer-grid",
+  style: {
+    marginBottom: 40
+  }
+}, /*#__PURE__*/React.createElement("div", null, /*#__PURE__*/React.createElement("div", {
+  style: {
+    border: `1px solid ${C.white}`,
+    padding: '10px 24px',
+    display: 'inline-block',
+    marginBottom: 20,
+    fontSize: 14,
+    fontFamily: 'Space Mono, monospace'
+  }
+}, "Logo here"), /*#__PURE__*/React.createElement("p", {
+  style: {
+    fontSize: 13,
+    lineHeight: 1.6,
+    opacity: 0.75,
+    maxWidth: 320,
+    marginBottom: 28
+  }
+}, "Elasticsearch Labs is the one-stop destination for developers to learn how to utilize Elasticsearch to build advanced search experiences including generative AI, embedding models, reranking capabilities and more."), /*#__PURE__*/React.createElement("div", {
+  style: {
+    fontSize: 11,
+    textTransform: 'uppercase',
+    letterSpacing: '0.1em',
+    opacity: 0.6,
+    marginBottom: 12,
+    fontFamily: 'Space Mono, monospace'
+  }
+}, "Let's connect"), /*#__PURE__*/React.createElement("div", {
+  style: {
+    display: 'flex',
+    gap: 16
+  }
+}, /*#__PURE__*/React.createElement("a", {
+  href: "#",
+  style: {
+    opacity: 0.85
+  }
+}, /*#__PURE__*/React.createElement(Icon.GitHub, null)), /*#__PURE__*/React.createElement("a", {
+  href: "#",
+  style: {
+    opacity: 0.85
+  }
+}, /*#__PURE__*/React.createElement(Icon.Twitter, null)), /*#__PURE__*/React.createElement("a", {
+  href: "#",
+  style: {
+    opacity: 0.85
+  }
+}, /*#__PURE__*/React.createElement(Icon.Rss, null)))), /*#__PURE__*/React.createElement("div", null, /*#__PURE__*/React.createElement("div", {
+  style: {
+    fontSize: 11,
+    textTransform: 'uppercase',
+    letterSpacing: '0.1em',
+    opacity: 0.6,
+    marginBottom: 20,
+    fontFamily: 'Space Mono, monospace'
+  }
+}, "Menu"), /*#__PURE__*/React.createElement("ul", {
+  style: {
+    listStyle: 'none',
+    padding: 0,
+    margin: 0,
+    display: 'flex',
+    flexDirection: 'column',
+    gap: 16,
+    fontSize: 15
+  }
+}, ['Tutorials', 'Examples', 'Integrations', 'Blogs'].map(l => /*#__PURE__*/React.createElement("li", {
+  key: l
+}, /*#__PURE__*/React.createElement("a", {
+  href: "#",
+  className: "hover-underline"
+}, l))))), /*#__PURE__*/React.createElement("div", null, /*#__PURE__*/React.createElement("div", {
+  style: {
+    fontSize: 11,
+    textTransform: 'uppercase',
+    letterSpacing: '0.1em',
+    opacity: 0.6,
+    marginBottom: 20,
+    fontFamily: 'Space Mono, monospace'
+  }
+}, "Additional Resources"), /*#__PURE__*/React.createElement("ul", {
+  style: {
+    listStyle: 'none',
+    padding: 0,
+    margin: 0,
+    display: 'flex',
+    flexDirection: 'column',
+    gap: 16,
+    fontSize: 15
+  }
+}, /*#__PURE__*/React.createElement("li", null, /*#__PURE__*/React.createElement("a", {
+  href: "#",
+  className: "hover-underline",
+  style: {
+    display: 'inline-flex',
+    alignItems: 'center',
+    gap: 6
+  }
+}, "Elasticsearch API Reference ", /*#__PURE__*/React.createElement(Icon.External, null))), /*#__PURE__*/React.createElement("li", null, /*#__PURE__*/React.createElement("a", {
+  href: "#",
+  className: "hover-underline",
+  style: {
+    display: 'inline-flex',
+    alignItems: 'center',
+    gap: 6
+  }
+}, "Elastic.co ", /*#__PURE__*/React.createElement(Icon.External, null)))))), /*#__PURE__*/React.createElement("div", {
+  className: "flex-mob-col",
+  style: {
+    borderTop: `1px solid rgba(255,255,255,0.15)`,
+    paddingTop: 24,
+    justifyContent: 'space-between',
+    fontSize: 12,
+    opacity: 0.6,
+    fontFamily: 'Space Mono, monospace',
+    gap: 16
+  }
+}, /*#__PURE__*/React.createElement("div", {
+  style: {
+    display: 'flex',
+    gap: 24,
+    flexWrap: 'wrap'
+  }
+}, /*#__PURE__*/React.createElement("a", {
+  href: "#",
+  className: "hover-underline"
+}, "Sitemap"), /*#__PURE__*/React.createElement("a", {
+  href: "#",
+  className: "hover-underline"
+}, "Subscribe"), /*#__PURE__*/React.createElement("a", {
+  href: "#",
+  className: "hover-underline"
+}, "Elastic.co")), /*#__PURE__*/React.createElement("div", null, "© 2026. Elasticsearch B.V. All Rights Reserved.")), /*#__PURE__*/React.createElement("div", {
+  style: {
+    marginTop: 20,
+    fontSize: 11,
+    opacity: 0.4,
+    lineHeight: 1.6,
+    maxWidth: 900
+  }
+}, "This website and all associated content, software, discussion forums, products, and services are intended for professional use only. Elastic, Elasticsearch, and other related marks are trademarks or registered trademarks of Elasticsearch B.V. in the United States and other countries.")));
+
+/* ============ ARTICLE CARD =========== */
+const ArticleCard = ({
+  tags = [],
+  title,
+  excerpt,
+  date,
+  author = 'Author Name',
+  label = 'Elasticsearch Labs',
+  onClick,
+  onNav
+}) => /*#__PURE__*/React.createElement("div", {
+  onClick: onClick,
+  className: "card-hover",
+  style: {
+    background: C.white,
+    border: `1px solid ${C.darkInk}`,
+    padding: 16,
+    cursor: 'pointer',
+    display: 'flex',
+    flexDirection: 'column'
+  }
+}, /*#__PURE__*/React.createElement("div", {
+  style: {
+    fontSize: 10,
+    fontFamily: 'Space Mono, monospace',
+    textTransform: 'uppercase',
+    color: C.darkInk,
+    marginBottom: 8,
+    letterSpacing: '0.05em'
+  }
+}, /*#__PURE__*/React.createElement("span", {
+  style: {
+    background: C.teal,
+    width: 8,
+    height: 8,
+    display: 'inline-block',
+    marginRight: 6,
+    verticalAlign: 'middle'
+  }
+}), label), /*#__PURE__*/React.createElement("div", {
+  style: {
+    background: C.darkGray,
+    aspectRatio: '16/9',
+    marginBottom: 16,
+    opacity: 0.5
+  }
+}), /*#__PURE__*/React.createElement("div", {
+  style: {
+    display: 'flex',
+    gap: 6,
+    flexWrap: 'wrap',
+    marginBottom: 12
+  }
+}, tags.map(t => /*#__PURE__*/React.createElement(Tag, {
+  key: t,
+  onNav: onNav
+}, t))), /*#__PURE__*/React.createElement("h3", {
+  className: "font-display card-title t-h5",
+  style: {
+    margin: 0,
+    marginBottom: 8,
+    color: C.darkInk
+  }
+}, title), /*#__PURE__*/React.createElement("p", {
+  className: "t-body-md",
+  style: {
+    color: C.darkInk,
+    opacity: 0.75,
+    margin: 0,
+    marginBottom: 16,
+    flex: 1
+  }
+}, excerpt), /*#__PURE__*/React.createElement("div", {
+  style: {
+    fontSize: 11,
+    fontFamily: 'Space Mono, monospace',
+    textTransform: 'uppercase',
+    color: C.darkInk,
+    opacity: 0.7,
+    display: 'flex',
+    alignItems: 'center',
+    gap: 12,
+    letterSpacing: '0.05em'
+  }
+}, /*#__PURE__*/React.createElement("span", null, date), /*#__PURE__*/React.createElement("span", null, "|"), /*#__PURE__*/React.createElement("span", {
+  style: {
+    display: 'inline-flex',
+    alignItems: 'center',
+    gap: 6
+  }
+}, /*#__PURE__*/React.createElement("span", {
+  style: {
+    background: C.darkGray,
+    width: 12,
+    height: 12,
+    display: 'inline-block',
+    borderRadius: 999
+  }
+}), author)));
+
+/* ============ NEW TO ELASTIC =========== */
+const NewToElasticPanel = ({
+  onNav,
+  showArrow = false,
+  calloutX,
+  calloutY,
+  arrowX,
+  arrowY,
+  arrowScale,
+  arrowRotate
+}) => {
+  const wrapVars = {};
+  if (calloutX) wrapVars['--callout-x'] = calloutX;
+  if (calloutY) wrapVars['--callout-y'] = calloutY;
+  const arrowVars = {};
+  if (arrowX) arrowVars['--arrow-x'] = arrowX;
+  if (arrowY) arrowVars['--arrow-y'] = arrowY;
+  if (arrowScale) arrowVars['--arrow-scale'] = arrowScale;
+  if (arrowRotate) arrowVars['--arrow-rotate'] = arrowRotate;
+  return /*#__PURE__*/React.createElement("div", {
+    className: "intro-callout-wrap",
+    style: wrapVars
+  }, showArrow && /*#__PURE__*/React.createElement("span", {
+    className: "intro-callout-arrow",
+    style: arrowVars,
+    "aria-hidden": "true"
+  }, /*#__PURE__*/React.createElement("svg", {
+    width: "95",
+    height: "54",
+    viewBox: "0 0 95 54",
+    fill: "none",
+    xmlns: "http://www.w3.org/2000/svg"
+  }, /*#__PURE__*/React.createElement("path", {
+    d: "M77.6571 38.0407L78.3435 37.3135V37.3135L77.6571 38.0407ZM0.29682 6.61766C-0.0958581 7.00601 -0.0993585 7.63917 0.288999 8.03185L6.61766 14.4309C7.00602 14.8236 7.63918 14.8271 8.03185 14.4387C8.42453 14.0504 8.42803 13.4172 8.03968 13.0245L2.4142 7.33648L8.10225 1.71101C8.49493 1.32265 8.49844 0.689494 8.11008 0.296814C7.72172 -0.095864 7.08857 -0.0993644 6.69589 0.288995L0.29682 6.61766ZM93.5782 53.0699L94.2647 52.3427L78.3435 37.3135L77.6571 38.0407L76.9706 38.7679L92.8918 53.7971L93.5782 53.0699ZM77.6571 38.0407L78.3435 37.3135C57.4196 17.5618 29.779 6.48784 1.00554 6.32868L1.00001 7.32866L0.994475 8.32865C29.2613 8.48501 56.4152 19.364 76.9706 38.7679L77.6571 38.0407Z",
+    fill: "black"
+  }))), /*#__PURE__*/React.createElement("a", {
+    className: "intro-callout",
+    href: "#",
+    onClick: e => {
+      e.preventDefault();
+      if (onNav) onNav('tutorials');
+    }
+  }, /*#__PURE__*/React.createElement("div", {
+    className: "intro-callout__content"
+  }, /*#__PURE__*/React.createElement("div", {
+    className: "intro-callout__title-row"
+  }, /*#__PURE__*/React.createElement("span", {
+    className: "intro-callout__icon"
+  }, /*#__PURE__*/React.createElement(Icon.Mail, {
+    s: 18
+  })), /*#__PURE__*/React.createElement("h6", {
+    className: "intro-callout__title"
+  }, "New to Elastic?")), /*#__PURE__*/React.createElement("p", {
+    className: "intro-callout__body"
+  }, "Start with the Elasticsearch docs to learn the fundamentals. When you're ready, come back to Elasticsearch Labs for more advanced content using our latest innovations."), /*#__PURE__*/React.createElement("span", {
+    className: "intro-callout__cta"
+  }, /*#__PURE__*/React.createElement(Icon.Right, {
+    s: 16
+  }), " Get started with Elasticsearch"))));
+};
+
+/* ============ FINAL CTA =========== */
+const FinalCTA = () => /*#__PURE__*/React.createElement("section", {
+  className: "pad-x",
+  style: {
+    paddingTop: 64,
+    paddingBottom: 64
+  }
+}, /*#__PURE__*/React.createElement("div", {
+  className: "cta-grid",
+  style: {
+    background: C.darkInk,
+    color: C.white,
+    padding: 48,
+    position: 'relative'
+  }
+}, /*#__PURE__*/React.createElement("div", {
+  style: {
+    position: 'absolute',
+    top: 12,
+    right: 12,
+    width: 0,
+    height: 0,
+    borderTop: `12px solid ${C.teal}`,
+    borderLeft: '12px solid transparent'
+  }
+}), /*#__PURE__*/React.createElement("div", {
+  style: {
+    display: 'flex',
+    alignItems: 'center',
+    justifyContent: 'center'
+  }
+}, /*#__PURE__*/React.createElement(LabsOrb, {
+  s: 120
+})), /*#__PURE__*/React.createElement("div", null, /*#__PURE__*/React.createElement("h3", {
+  className: "font-display h2-md",
+  style: {
+    margin: 0,
+    marginBottom: 12,
+    color: C.white,
+    lineHeight: 1.2
+  }
+}, "Ready to build state of the art search experiences?"), /*#__PURE__*/React.createElement("p", {
+  style: {
+    fontSize: 14,
+    lineHeight: 1.6,
+    opacity: 0.8,
+    marginBottom: 20,
+    maxWidth: 800
+  }
+}, "Sufficiently advanced search isn't achieved with the efforts of one. Elasticsearch is powered by data scientists, ML ops, engineers, and many more who are just as passionate about search as you are. Let's connect and work together to build the magical search experience that will get you the results you want."), /*#__PURE__*/React.createElement("div", {
+  style: {
+    display: 'flex',
+    gap: 12,
+    flexWrap: 'wrap'
+  }
+}, /*#__PURE__*/React.createElement("button", {
+  className: "btn-solid",
+  style: {
+    padding: '12px 24px',
+    fontSize: 14,
+    fontWeight: 600,
+    display: 'inline-flex',
+    alignItems: 'center',
+    gap: 10
+  }
+}, "Try it yourself ", /*#__PURE__*/React.createElement(Icon.GitHub, {
+  s: 16
+})), /*#__PURE__*/React.createElement("button", {
+  className: "btn-outline",
+  style: {
+    padding: '12px 24px',
+    fontSize: 14,
+    fontWeight: 600
+  }
+}, "Subscribe to newsletter")))));
+
+/* ============ HERO =========== */
+const HeroSection = ({
+  title,
+  subtitle,
+  right,
+  breadcrumb,
+  onNav
+}) => /*#__PURE__*/React.createElement("section", {
+  className: "grid-bg pad-x",
+  style: {
+    paddingTop: 48,
+    paddingBottom: 64
+  }
+}, breadcrumb && /*#__PURE__*/React.createElement("button", {
+  onClick: () => onNav && onNav('home'),
+  style: {
+    background: 'none',
+    border: 'none',
+    color: C.darkInk,
+    fontSize: 13,
+    marginBottom: 24,
+    display: 'inline-flex',
+    gap: 8,
+    alignItems: 'center'
+  },
+  className: "font-mono link-underline"
+}, /*#__PURE__*/React.createElement(Icon.Left, {
+  s: 16
+}), " Breadcrumb"), /*#__PURE__*/React.createElement("div", {
+  style: {
+    display: 'grid',
+    gridTemplateColumns: right ? '1.5fr 1fr' : '1fr auto',
+    gap: 32,
+    alignItems: 'start'
+  }
+}, /*#__PURE__*/React.createElement("div", null, /*#__PURE__*/React.createElement("h2", {
+  className: "font-display hero-title",
+  style: {
+    color: C.darkInk,
+    margin: 0,
+    lineHeight: 1.05,
+    paddingBottom: 0
+  }
+}, /*#__PURE__*/React.createElement("span", {
+  className: "slash-marker-hero",
+  style: {
+    color: C.teal
+  }
+}, "//"), title), subtitle && /*#__PURE__*/React.createElement("p", {
+  style: {
+    fontSize: 16,
+    lineHeight: 1.6,
+    color: C.darkInk,
+    maxWidth: 720
+  },
+  className: "font-sans hero-subtitle"
+}, subtitle)), /*#__PURE__*/React.createElement("div", {
+  className: "hide-mob"
+}, right || /*#__PURE__*/React.createElement(LabsOrb, {
+  s: 120
+}))));
+
+/* ============================================================
+   PAGE 1: HOMEPAGE
+   ============================================================ */
+const HomePage = ({
+  onNav
+}) => {
+  const sideArticles = [{
+    title: 'Multilingual image search with Jina CLIP v2 and Elasticsearch',
+    tags: ['Integrations', 'Vector database'],
+    date: 'JUNE 01, 2026'
+  }, {
+    title: 'This is a much shorter blog post title name',
+    tags: ['Agentic AI', '.NET'],
+    date: 'JUNE 01, 2026'
+  }, {
+    title: 'Multilingual image search with Jina CLIP v2 and Elasticsearch',
+    tags: ['Agentic AI', '.NET'],
+    date: 'JUNE 01, 2026'
+  }, {
+    title: 'Another shorter blog post title here on one line',
+    tags: ['Agentic AI', '.NET'],
+    date: 'JUNE 01, 2026'
+  }, {
+    title: 'Agent Builder, beyond the chatbox: Introducing Augmented Infrastructure',
+    tags: ['Analytics', 'ML'],
+    date: 'AUGUST 20, 2025'
+  }];
+  const integrations = [{
+    name: 'Alibaba Cloud',
+    desc: 'Established in 2009, Alibaba Cloud is the digital technology backbone of Alibaba Group, offering elastic computing, database storage, big data analytics, and AI services worldwide.',
+    icon: '☁'
+  }, {
+    name: 'Amazon Bedrock',
+    desc: 'A fully managed service offering a choice of high-performing foundation models from leading AI companies through a single API.',
+    icon: 'aws'
+  }, {
+    name: 'Anthropic',
+    desc: 'AI lab whose research and products put safety at the frontier. Anthropic creates reliable, interpretable, and steerable AI systems including Claude.',
+    icon: 'A\\'
+  }, {
+    name: 'Cohere',
+    desc: 'Cohere builds models for use cases such as embeddings and reranking, used by companies to build production-ready AI-powered applications.',
+    icon: 'co'
+  }, {
+    name: 'Google Vertex AI',
+    desc: 'A fully-managed, unified AI development platform for building generative AI, providing access to 150+ foundation models including Gemini.',
+    icon: 'G'
+  }, {
+    name: 'Hugging Face',
+    desc: 'Open-source hub dedicated to AI/ML models and tools. Integrate with Elasticsearch via the transformers library.',
+    icon: '🤗'
+  }, {
+    name: 'IBM watsonx',
+    desc: 'AI and Data Platform with core components and AI assistants designed to scale and accelerate AI impact using trusted data.',
+    icon: 'IBM'
+  }, {
+    name: 'Jina AI',
+    desc: 'Jina AI develops and distributes compact, high-performance Search Foundation models for multilingual text and image processing.',
+    icon: 'J'
+  }, {
+    name: 'Mistral AI',
+    desc: 'European AI lab building open-weight frontier models with strong emphasis on efficiency and multilingual capability.',
+    icon: 'M'
+  }];
+  return /*#__PURE__*/React.createElement(React.Fragment, null, /*#__PURE__*/React.createElement(HeroSection, {
+    title: "Elasticsearch",
+    subtitle: "Elasticsearch Labs is the one-stop destination for developers to learn how to easily utilize Elasticsearch to build advanced search experiences including generative AI, embedding models, reranking capabilities and more."
+  }), /*#__PURE__*/React.createElement("section", {
+    className: "pad-x",
+    style: {
+      paddingTop: 64,
+      paddingBottom: 64
+    }
+  }, /*#__PURE__*/React.createElement("div", {
+    style: {
+      display: 'flex',
+      alignItems: 'center',
+      gap: 12,
+      marginBottom: 24,
+      color: C.darkInk
+    }
+  }, /*#__PURE__*/React.createElement(Icon.Star, {
+    s: 22
+  }), /*#__PURE__*/React.createElement("h2", {
+    className: "font-mono",
+    style: {
+      fontSize: 14,
+      fontWeight: 700,
+      textTransform: 'uppercase',
+      letterSpacing: '0.1em',
+      margin: 0
+    }
+  }, "Featured Articles")), /*#__PURE__*/React.createElement("div", {
+    style: {
+      borderTop: `1px solid ${C.mediumGray}`,
+      marginBottom: 32
+    }
+  }), /*#__PURE__*/React.createElement("div", {
+    className: "featured-grid"
+  }, /*#__PURE__*/React.createElement("div", {
+    onClick: () => onNav('blogArticle'),
+    className: "featured-large card-hover",
+    style: {
+      background: C.white,
+      border: `1px solid ${C.darkInk}`,
+      padding: 24,
+      cursor: 'pointer',
+      display: 'flex',
+      flexDirection: 'column',
+      gap: 24
+    }
+  }, /*#__PURE__*/React.createElement("div", {
+    style: {
+      background: C.darkGray,
+      aspectRatio: '588/330',
+      opacity: 0.5
+    }
+  }), /*#__PURE__*/React.createElement("div", {
+    style: {
+      display: 'flex',
+      gap: 8,
+      flexWrap: 'wrap'
+    }
+  }, ['Agentic AI', '.NET', 'Developer experience'].map(t => /*#__PURE__*/React.createElement(Tag, {
+    key: t,
+    onNav: onNav
+  }, t))), /*#__PURE__*/React.createElement("div", null, /*#__PURE__*/React.createElement("h3", {
+    className: "font-display card-title t-h4",
+    style: {
+      margin: 0,
+      marginBottom: 8,
+      color: C.darkInk
+    }
+  }, "Build a RAG agent with Elasticsearch and GitHub Copilot SDK"), /*#__PURE__*/React.createElement("p", {
+    style: {
+      fontSize: 16,
+      lineHeight: 1.5,
+      color: C.darkInk,
+      margin: 0
+    }
+  }, "Wire Elasticsearch into the GitHub Copilot SDK as a RAG tool in five lines of C#, grounding your agent in your own logs, docs and data instead of model training data.")), /*#__PURE__*/React.createElement("div", {
+    className: "font-mono",
+    style: {
+      display: 'flex',
+      alignItems: 'center',
+      gap: 10,
+      fontSize: 12,
+      color: C.darkInk
+    }
+  }, /*#__PURE__*/React.createElement("span", null, "JUNE 01, 2026"), /*#__PURE__*/React.createElement("span", null, "|"), /*#__PURE__*/React.createElement("span", {
+    style: {
+      display: 'inline-flex',
+      alignItems: 'center',
+      gap: 8
+    }
+  }, /*#__PURE__*/React.createElement("span", {
+    style: {
+      background: C.darkGray,
+      width: 12,
+      height: 12,
+      display: 'inline-block'
+    }
+  }), "Author Name"))), /*#__PURE__*/React.createElement("ul", {
+    className: "side-rows",
+    style: {
+      listStyle: 'none',
+      padding: 0,
+      margin: 0
+    }
+  }, sideArticles.map((a, i) => /*#__PURE__*/React.createElement("li", {
+    key: i,
+    onClick: () => onNav('blogArticle'),
+    className: "side-row",
+    style: {
+      display: 'grid',
+      gridTemplateColumns: '160px 1fr',
+      gap: 24,
+      padding: '0 0 16px 0',
+      marginBottom: 16,
+      borderBottom: `1px solid ${C.darkGray}`,
+      cursor: 'pointer',
+      alignItems: 'center'
+    }
+  }, /*#__PURE__*/React.createElement("div", {
+    className: "side-row-thumb",
+    style: {
+      background: C.darkGray,
+      width: 160,
+      height: 90,
+      border: `1px solid ${C.darkInk}`,
+      opacity: 0.6,
+      flexShrink: 0
+    }
+  }), /*#__PURE__*/React.createElement("div", {
+    style: {
+      minWidth: 0,
+      display: 'flex',
+      flexDirection: 'column',
+      gap: 8
+    }
+  }, /*#__PURE__*/React.createElement("div", {
+    style: {
+      display: 'flex',
+      gap: 8,
+      flexWrap: 'wrap'
+    }
+  }, a.tags.map(t => /*#__PURE__*/React.createElement(Tag, {
+    key: t,
+    onNav: onNav
+  }, t))), /*#__PURE__*/React.createElement("h4", {
+    className: "font-display side-row-title t-h6",
+    style: {
+      margin: 0,
+      color: C.darkInk
+    }
+  }, a.title), /*#__PURE__*/React.createElement("div", {
+    className: "font-mono",
+    style: {
+      display: 'flex',
+      alignItems: 'center',
+      gap: 10,
+      fontSize: 12,
+      color: C.darkInk
+    }
+  }, /*#__PURE__*/React.createElement("span", null, a.date), /*#__PURE__*/React.createElement("span", null, "|"), /*#__PURE__*/React.createElement("span", {
+    style: {
+      display: 'inline-flex',
+      alignItems: 'center',
+      gap: 8
+    }
+  }, /*#__PURE__*/React.createElement("span", {
+    style: {
+      background: C.darkGray,
+      width: 12,
+      height: 12,
+      display: 'inline-block'
+    }
+  }), "Author Name"))))))), /*#__PURE__*/React.createElement("div", {
+    style: {
+      marginTop: 32,
+      textAlign: 'center'
+    }
+  }, /*#__PURE__*/React.createElement("button", {
+    onClick: () => onNav('blog'),
+    style: {
+      background: 'none',
+      border: 'none',
+      color: C.darkInk,
+      fontSize: 15,
+      fontWeight: 600,
+      display: 'inline-flex',
+      alignItems: 'center',
+      gap: 10
+    },
+    className: "link-underline"
+  }, /*#__PURE__*/React.createElement(Icon.Right, null), " All articles"))), /*#__PURE__*/React.createElement("section", {
+    className: "pad-x",
+    style: {
+      paddingTop: 64,
+      paddingBottom: 64,
+      background: C.white
+    }
+  }, /*#__PURE__*/React.createElement(SectionTitle, null, "Get started"), /*#__PURE__*/React.createElement("p", {
+    style: {
+      fontSize: 16,
+      color: C.darkInk,
+      marginTop: 24,
+      marginBottom: 32,
+      maxWidth: 720,
+      lineHeight: 1.5
+    }
+  }, "We've gathered top resources to help you start with Elasticsearch, from beginner tutorials to advanced tool integrations."), /*#__PURE__*/React.createElement("div", {
+    className: "get-started-grid"
+  }, /*#__PURE__*/React.createElement("div", {
+    className: "get-started-cards",
+    style: {
+      gridColumn: 'span 2'
+    }
+  }, [{
+    icon: /*#__PURE__*/React.createElement(Icon.Book, null),
+    title: 'Tutorials',
+    desc: 'Long-form guides to get you started',
+    page: 'tutorials'
+  }, {
+    icon: /*#__PURE__*/React.createElement(Icon.Book, null),
+    title: 'Examples',
+    desc: 'Long-form guides to get you started',
+    page: 'examples'
+  }, {
+    icon: /*#__PURE__*/React.createElement(Icon.Book, null),
+    title: 'Integrations',
+    desc: 'Connect to your favourite tools',
+    page: 'integrations'
+  }, {
+    icon: /*#__PURE__*/React.createElement(Icon.Pen, null),
+    title: 'Blogs',
+    desc: "Developer insights, thought leadership, and how-to's",
+    page: 'blog'
+  }].map((item, i) => /*#__PURE__*/React.createElement("button", {
+    key: i,
+    onClick: () => onNav(item.page),
+    className: "card-hover",
+    style: {
+      background: C.white,
+      border: `1px solid ${C.darkInk}`,
+      padding: 20,
+      textAlign: 'left',
+      cursor: 'pointer',
+      minHeight: 137
+    }
+  }, /*#__PURE__*/React.createElement("div", {
+    style: {
+      display: 'flex',
+      alignItems: 'center',
+      gap: 12,
+      marginBottom: 10,
+      color: C.darkInk
+    }
+  }, item.icon, /*#__PURE__*/React.createElement("h3", {
+    className: "font-display card-title t-h5",
+    style: {
+      margin: 0
+    }
+  }, item.title)), /*#__PURE__*/React.createElement("p", {
+    style: {
+      fontSize: 13,
+      color: C.darkInk,
+      opacity: 0.75,
+      margin: 0,
+      lineHeight: 1.5
+    }
+  }, item.desc)))), /*#__PURE__*/React.createElement(NewToElasticPanel, {
+    showArrow: true
+  }))), /*#__PURE__*/React.createElement("section", {
+    className: "pad-x",
+    style: {
+      paddingTop: 64,
+      paddingBottom: 64,
+      background: C.white
+    }
+  }, /*#__PURE__*/React.createElement(SectionTitle, null, "Examples"), /*#__PURE__*/React.createElement("p", {
+    style: {
+      fontSize: 16,
+      color: C.darkInk,
+      marginTop: 24,
+      marginBottom: 32,
+      maxWidth: 720,
+      lineHeight: 1.5
+    }
+  }, "Practical how-to guides, interactive notebooks, and sample apps to get you started."), /*#__PURE__*/React.createElement("div", {
+    className: "grid-2 examples-cols"
+  }, /*#__PURE__*/React.createElement("div", {
+    style: {
+      display: 'flex',
+      flexDirection: 'column',
+      gap: 24
+    }
+  }, /*#__PURE__*/React.createElement(ExamplesPanel, {
+    title: "Apps",
+    items: [{
+      title: 'Chatbot RAG Reference App',
+      tags: ['AI', 'Vector database']
+    }, {
+      title: 'OpenAI embeddings in Elasticsearch',
+      tags: ['Vector database', 'Relevance']
+    }, {
+      title: 'Relevance Workbench',
+      tags: ['Vector database', 'Relevance']
+    }],
+    accent: C.elasticBlue,
+    onNav: onNav
+  }), /*#__PURE__*/React.createElement("div", {
+    style: {
+      background: C.white,
+      border: `1px solid ${C.darkInk}`,
+      boxShadow: `8px 8px 0 0 ${C.teal}`
+    }
+  }, /*#__PURE__*/React.createElement("div", {
+    style: {
+      borderBottom: `1px solid ${C.mediumGray}`,
+      padding: 12
+    }
+  }, /*#__PURE__*/React.createElement("div", {
+    style: {
+      width: 8,
+      height: 8,
+      background: C.darkInk
+    }
+  })), /*#__PURE__*/React.createElement("div", {
+    style: {
+      padding: 20
+    }
+  }, /*#__PURE__*/React.createElement("h4", {
+    className: "font-display t-h6",
+    style: {
+      margin: 0,
+      marginBottom: 10,
+      color: C.darkInk
+    }
+  }, "Glossary"), /*#__PURE__*/React.createElement("p", {
+    style: {
+      fontSize: 14,
+      color: C.darkInk,
+      opacity: 0.75,
+      margin: 0,
+      marginBottom: 16,
+      lineHeight: 1.5
+    }
+  }, "Definitions and reference material for every term, concept, and acronym used across the Elasticsearch Labs library."), /*#__PURE__*/React.createElement("button", {
+    onClick: () => onNav('glossary'),
+    style: {
+      background: 'none',
+      border: 'none',
+      color: C.darkInk,
+      cursor: 'pointer'
+    }
+  }, /*#__PURE__*/React.createElement(Icon.Right, null))))), /*#__PURE__*/React.createElement(ExamplesPanel, {
+    title: "Notebook",
+    accent: C.yellow,
+    items: [{
+      title: 'Semantic search quick start',
+      tags: ['Vector database', 'Relevance']
+    }, {
+      title: 'Semantic search using the Inference API with the OpenAI service',
+      tags: ['Vector database', 'Relevance'],
+      expanded: true
+    }, {
+      title: 'Semantic search quick start',
+      tags: ['Vector database', 'Relevance']
+    }, {
+      title: 'Semantic search quick start',
+      tags: ['Vector database', 'Relevance']
+    }, {
+      title: 'Semantic search quick start',
+      tags: ['Vector database', 'Relevance']
+    }, {
+      title: 'Semantic search quick start',
+      tags: ['Vector database']
+    }, {
+      title: 'Integrations LangChain question answering with self query retriever',
+      tags: ['Vector database']
+    }, {
+      title: 'Semantic search quick start',
+      tags: ['Vector database']
+    }],
+    onNav: onNav
+  }))), /*#__PURE__*/React.createElement("section", {
+    className: "pad-x",
+    style: {
+      paddingTop: 80,
+      paddingBottom: 80,
+      background: C.lightGray
+    }
+  }, /*#__PURE__*/React.createElement("div", {
+    style: {
+      marginBottom: 32
+    }
+  }, /*#__PURE__*/React.createElement("div", {
+    style: {
+      color: C.darkInk,
+      marginBottom: 16
+    }
+  }, /*#__PURE__*/React.createElement(Icon.Plug, {
+    s: 24
+  })), /*#__PURE__*/React.createElement(SectionTitle, null, "Integrations"), /*#__PURE__*/React.createElement("p", {
+    style: {
+      fontSize: 16,
+      color: C.darkInk,
+      marginTop: 24,
+      marginBottom: 24,
+      lineHeight: 1.5,
+      maxWidth: 800
+    }
+  }, "Seamlessly connect with leading AI and machine learning platforms to enhance your search capabilities and drive powerful, intelligent applications with Elasticsearch."), /*#__PURE__*/React.createElement("button", {
+    onClick: () => onNav('integrations'),
+    style: {
+      background: 'none',
+      border: 'none',
+      color: C.darkInk,
+      fontSize: 15,
+      fontWeight: 600,
+      display: 'inline-flex',
+      alignItems: 'center',
+      gap: 10
+    },
+    className: "link-underline"
+  }, /*#__PURE__*/React.createElement(Icon.Right, null), " View all integrations")), /*#__PURE__*/React.createElement("div", {
+    style: {
+      borderTop: `2px solid ${C.teal}`,
+      marginBottom: 32
+    }
+  }), /*#__PURE__*/React.createElement("div", {
+    className: "grid-3"
+  }, integrations.map((it, i) => /*#__PURE__*/React.createElement("button", {
+    key: i,
+    onClick: () => onNav('integrationDetail'),
+    className: "card-hover",
+    style: {
+      background: C.white,
+      border: `1px solid ${C.darkInk}`,
+      padding: 20,
+      textAlign: 'left',
+      cursor: 'pointer'
+    }
+  }, /*#__PURE__*/React.createElement("div", {
+    style: {
+      width: 40,
+      height: 30,
+      background: C.lightGray,
+      marginBottom: 16,
+      display: 'flex',
+      alignItems: 'center',
+      justifyContent: 'center',
+      color: C.darkInk,
+      fontWeight: 700,
+      fontSize: 14
+    }
+  }, it.icon), /*#__PURE__*/React.createElement("h4", {
+    className: "font-display card-title t-h6",
+    style: {
+      margin: 0,
+      marginBottom: 8,
+      color: C.darkInk
+    }
+  }, it.name), /*#__PURE__*/React.createElement("p", {
+    style: {
+      fontSize: 13,
+      color: C.darkInk,
+      opacity: 0.75,
+      margin: 0,
+      lineHeight: 1.55
+    }
+  }, it.desc))))), /*#__PURE__*/React.createElement(FinalCTA, null));
+};
+
+/* ============ EXAMPLES PANEL (accordion) =========== */
+const ExamplesPanel = ({
+  title,
+  items,
+  accent = C.elasticBlue,
+  onNav
+}) => {
+  // Start with any item pre-marked expanded, or -1 for none
+  const initialIdx = items.findIndex(i => i.expanded);
+  const [expandedIdx, setExpandedIdx] = useState(initialIdx);
+  return /*#__PURE__*/React.createElement("div", {
+    style: {
+      background: C.white,
+      border: `1px solid ${C.darkInk}`,
+      boxShadow: `8px 8px 0 0 ${accent}`
+    }
+  }, /*#__PURE__*/React.createElement("div", {
+    style: {
+      borderBottom: `1px solid ${C.mediumGray}`,
+      padding: 12
+    }
+  }, /*#__PURE__*/React.createElement("div", {
+    style: {
+      width: 8,
+      height: 8,
+      background: C.darkInk
+    }
+  })), /*#__PURE__*/React.createElement("div", {
+    style: {
+      padding: '16px 16px 8px'
+    }
+  }, /*#__PURE__*/React.createElement("h4", {
+    className: "font-display t-h6",
+    style: {
+      margin: 0,
+      color: C.darkInk
+    }
+  }, title)), /*#__PURE__*/React.createElement("div", {
+    style: {
+      display: 'flex',
+      flexDirection: 'column',
+      gap: 8,
+      padding: '0 16px 16px'
+    }
+  }, items.map((it, i) => {
+    const isOpen = expandedIdx === i;
+    return /*#__PURE__*/React.createElement("div", {
+      key: i,
+      className: `exp-item ${isOpen ? 'exp-item-expanded' : ''}`,
+      onClick: () => {
+        if (onNav) onNav(title === 'Notebook' ? 'blogArticle' : 'examples');
+      },
+      style: {
+        padding: '14px 16px',
+        display: 'flex',
+        justifyContent: 'space-between',
+        alignItems: 'flex-start',
+        gap: 12,
+        background: C.lightGray,
+        cursor: 'pointer'
+      }
+    }, /*#__PURE__*/React.createElement("div", {
+      style: {
+        flex: 1,
+        minWidth: 0
+      }
+    }, /*#__PURE__*/React.createElement("span", {
+      className: "font-display exp-item-title",
+      style: {
+        display: 'block',
+        fontSize: 14,
+        fontWeight: 600,
+        color: C.darkInk,
+        marginBottom: 8
+      }
+    }, it.title), it.tags && /*#__PURE__*/React.createElement("div", {
+      className: "exp-item-tags",
+      style: {
+        display: 'flex',
+        gap: 6,
+        flexWrap: 'wrap'
+      }
+    }, it.tags.map(t => /*#__PURE__*/React.createElement(Tag, {
+      key: t,
+      onNav: onNav
+    }, t))), isOpen && /*#__PURE__*/React.createElement("div", {
+      style: {
+        marginTop: 12,
+        fontSize: 13,
+        color: C.darkInk,
+        opacity: 0.75,
+        lineHeight: 1.5
+      }
+    }, "New to Elastic? Start with the Elasticsearch docs to learn the fundamentals.", /*#__PURE__*/React.createElement("div", {
+      style: {
+        marginTop: 10,
+        color: C.elasticBlue,
+        fontWeight: 600
+      },
+      className: "link-underline"
+    }, "Learn more"))), /*#__PURE__*/React.createElement("button", {
+      className: "exp-item-toggle",
+      onClick: e => {
+        e.stopPropagation();
+        setExpandedIdx(isOpen ? -1 : i);
+      },
+      "aria-label": isOpen ? 'Collapse' : 'Expand',
+      "aria-expanded": isOpen,
+      style: {
+        background: 'none',
+        border: `1px solid ${C.mediumGray}`,
+        width: 22,
+        height: 22,
+        display: 'flex',
+        alignItems: 'center',
+        justifyContent: 'center',
+        cursor: 'pointer',
+        flexShrink: 0
+      }
+    }, isOpen ? /*#__PURE__*/React.createElement(Icon.Minus, {
+      s: 10
+    }) : /*#__PURE__*/React.createElement(Icon.Add, {
+      s: 10
+    })));
+  })));
+};
+
+/* ============================================================
+   PAGE 2: BLOG LISTING
+   ============================================================ */
+const BlogListPage = ({
+  onNav
+}) => {
+  const [tab, setTab] = useState('blog');
+  const blogPosts = Array.from({
+    length: 12
+  }).map(() => ({
+    title: 'Build a RAG agent with Elasticsearch and GitHub Copilot SDK',
+    excerpt: 'Wire Elasticsearch into the GitHub Copilot SDK as a RAG tool in five lines of C#, grounding your agent in your own logs, docs and data instead of model training data.',
+    tags: ['Agentic AI', '.NET', 'Developer experience'],
+    date: 'JUNE 01, 2026'
+  }));
+  return /*#__PURE__*/React.createElement(React.Fragment, null, /*#__PURE__*/React.createElement(HeroSection, {
+    title: "Blog",
+    subtitle: "Developer insights and practical how-to articles from our experts to inspire and empower your search experience"
+  }), /*#__PURE__*/React.createElement("section", {
+    className: "pad-x",
+    style: {
+      paddingTop: '24px',
+      paddingBottom: '12px',
+      background: C.white
+    }
+  }, /*#__PURE__*/React.createElement("div", {
+    style: {
+      display: 'flex',
+      gap: 32,
+      borderBottom: `1px solid ${C.mediumGray}`,
+      marginBottom: 20
+    }
+  }, ['blog', 'series'].map(k => /*#__PURE__*/React.createElement("button", {
+    key: k,
+    onClick: () => k === 'series' ? onNav('blogSeries') : setTab(k),
+    style: {
+      padding: '10px 0',
+      background: 'none',
+      border: 'none',
+      borderBottom: k === tab ? `2px solid ${C.teal}` : '2px solid transparent',
+      fontSize: 15,
+      fontWeight: 500,
+      color: C.darkInk,
+      textTransform: 'capitalize'
+    }
+  }, k))), /*#__PURE__*/React.createElement(BlogFilterBar, null)), /*#__PURE__*/React.createElement("section", {
+    className: "pad-x",
+    style: {
+      paddingTop: '0',
+      paddingBottom: '48px',
+      background: C.white
+    }
+  }, /*#__PURE__*/React.createElement("div", {
+    className: "grid-3"
+  }, blogPosts.map((p, i) => /*#__PURE__*/React.createElement(ArticleCard, {
+    key: i,
+    tags: p.tags,
+    title: p.title,
+    excerpt: p.excerpt,
+    date: p.date,
+    onClick: () => onNav('blogArticle'),
+    onNav: onNav
+  }))), /*#__PURE__*/React.createElement("div", {
+    className: "pagination-row",
+    style: {
+      marginTop: 40
+    }
+  }, /*#__PURE__*/React.createElement("button", {
+    style: paginationBtn
+  }, /*#__PURE__*/React.createElement(Icon.Left, {
+    s: 16
+  })), /*#__PURE__*/React.createElement("span", {
+    className: "link-underline prev-next-label",
+    style: {
+      marginRight: 16,
+      color: C.darkInk,
+      fontSize: 14
+    }
+  }, "Previous"), [1, 2, 3, '...', 10].map((n, i) => /*#__PURE__*/React.createElement("button", {
+    key: i,
+    style: {
+      ...paginationBtn,
+      background: n === 1 ? C.darkInk : 'transparent',
+      color: n === 1 ? C.white : C.darkInk,
+      border: n === 1 ? 'none' : `1px solid ${C.mediumGray}`
+    }
+  }, n)), /*#__PURE__*/React.createElement("span", {
+    className: "link-underline prev-next-label",
+    style: {
+      marginLeft: 16,
+      color: C.darkInk,
+      fontSize: 14
+    }
+  }, "Next"), /*#__PURE__*/React.createElement("button", {
+    style: paginationBtn
+  }, /*#__PURE__*/React.createElement(Icon.Right, {
+    s: 16
+  })))));
+};
+const paginationBtn = {
+  width: 40,
+  height: 40,
+  display: 'inline-flex',
+  alignItems: 'center',
+  justifyContent: 'center',
+  background: 'transparent',
+  border: `1px solid ${C.mediumGray}`,
+  color: C.darkInk,
+  fontSize: 14
+};
+
+/* ============ BLOG FILTER SYSTEM (per spec) ============ */
+
+// Filter data
+const FILTER_DATA = {
+  blog: {
+    label: 'Blog',
+    options: ['Elasticsearch LABS', 'Observability LABS', 'Security LABS', 'News', 'All']
+  },
+  categories: {
+    label: 'Categories',
+    options: ['Developer Experience', 'Elastic Cloud Hosted', 'Elastic Cloud Serverless', 'Inside Elastic', 'Integrations', 'Jina AI', 'Kubernetes', 'Lucene', 'Vector Database'],
+    submenus: {
+      'AI': ['Generative AI', 'Embeddings', 'LLMs', 'RAG', 'Semantic Search'],
+      'Hybrid Search': ['Sparse Vectors', 'Dense Vectors', 'BM25', 'Reranking'],
+      'Index Data': ['Mappings', 'Ingest Pipelines', 'Bulk API', 'Reindex'],
+      'Operations': ['Monitoring', 'Backup & Restore', 'Performance Tuning', 'Sharding'],
+      'Query Languages': ['ES|QL', 'Query DSL', 'KQL', 'SQL']
+    }
+  },
+  lang: {
+    label: 'Coding Language',
+    options: ['.NET', 'Go', 'Java', 'JavaScript', 'PHP', 'Python', 'Ruby', 'All coding languages']
+  }
+};
+const FLY_ARROW = /*#__PURE__*/React.createElement("svg", {
+  className: "blog-filter-opt-flyarrow",
+  viewBox: "0 0 10 10",
+  "aria-hidden": "true"
+}, /*#__PURE__*/React.createElement("polygon", {
+  points: "3,2 8,5 3,8",
+  fill: "currentColor"
+}));
+const CLEAR_X = /*#__PURE__*/React.createElement("svg", {
+  viewBox: "0 0 10 10",
+  width: "8",
+  height: "8",
+  "aria-hidden": "true"
+}, /*#__PURE__*/React.createElement("path", {
+  d: "M2 2 L8 8 M8 2 L2 8",
+  stroke: "currentColor",
+  strokeWidth: "1.6",
+  strokeLinecap: "round"
+}));
+const CHEV = cls => /*#__PURE__*/React.createElement("svg", {
+  className: cls,
+  viewBox: "0 0 12 12"
+}, /*#__PURE__*/React.createElement("polygon", {
+  points: "2,4 10,4 6,9",
+  fill: "currentColor"
+}));
+
+// One filter dropdown (with optional submenus)
+const BlogFilter = ({
+  slug,
+  isOpen,
+  onToggle,
+  onCloseAll
+}) => {
+  const data = FILTER_DATA[slug];
+  const [selected, setSelected] = useState(null);
+  const select = name => {
+    setSelected(name);
+    onCloseAll();
+  };
+  const clear = e => {
+    e.stopPropagation();
+    setSelected(null);
+  };
+  return /*#__PURE__*/React.createElement("div", {
+    className: `blog-filter${isOpen ? ' is-open' : ''}${selected ? ' is-filtered' : ''}`
+  }, /*#__PURE__*/React.createElement("button", {
+    className: "blog-filter-btn",
+    onClick: onToggle
+  }, /*#__PURE__*/React.createElement("span", {
+    className: "blog-filter-clear",
+    role: "button",
+    "aria-label": "Clear filter",
+    tabIndex: 0,
+    onClick: clear,
+    onKeyDown: e => {
+      if (e.key === 'Enter' || e.key === ' ') clear(e);
+    }
+  }, CLEAR_X), /*#__PURE__*/React.createElement("span", {
+    className: "blog-filter-label"
+  }, selected || data.label), CHEV('blog-filter-chev')), /*#__PURE__*/React.createElement("div", {
+    className: "blog-filter-menu"
+  }, data.options.map(opt => /*#__PURE__*/React.createElement("a", {
+    key: opt,
+    className: "blog-filter-opt",
+    onClick: e => {
+      e.preventDefault();
+      select(opt);
+    },
+    href: "#"
+  }, opt)), data.submenus && Object.entries(data.submenus).map(([parent, children]) => /*#__PURE__*/React.createElement("div", {
+    className: "blog-filter-opt-wrap",
+    key: parent
+  }, /*#__PURE__*/React.createElement("a", {
+    href: "#",
+    className: "blog-filter-opt blog-filter-opt--has-submenu",
+    onClick: e => {
+      e.preventDefault();
+      select(parent);
+    }
+  }, /*#__PURE__*/React.createElement("span", null, parent), FLY_ARROW), /*#__PURE__*/React.createElement("div", {
+    className: "blog-filter-submenu",
+    role: "menu"
+  }, children.map(c => /*#__PURE__*/React.createElement("a", {
+    key: c,
+    href: "#",
+    className: "blog-filter-opt blog-filter-opt--child",
+    onClick: e => {
+      e.preventDefault();
+      select(c);
+    }
+  }, c)))))));
+};
+
+// Sort control
+const BlogSort = ({
+  isOpen,
+  onToggle,
+  onCloseAll
+}) => {
+  const [sort, setSort] = useState('Newest');
+  const opts = ['Newest', 'Oldest', 'Most popular'];
+  return /*#__PURE__*/React.createElement("div", {
+    className: `blog-sort${isOpen ? ' is-open' : ''}`
+  }, /*#__PURE__*/React.createElement("button", {
+    className: "blog-sort-btn",
+    onClick: onToggle
+  }, "Sort by: ", /*#__PURE__*/React.createElement("strong", null, sort), " ", CHEV('blog-sort-chev')), /*#__PURE__*/React.createElement("div", {
+    className: "blog-sort-menu"
+  }, opts.map(o => /*#__PURE__*/React.createElement("a", {
+    key: o,
+    href: "#",
+    className: `blog-sort-opt${o === sort ? ' is-active' : ''}`,
+    onClick: e => {
+      e.preventDefault();
+      setSort(o);
+      onCloseAll();
+    }
+  }, o))));
+};
+
+// Filter bar container — owns which dropdown is open (mutual exclusivity + click-outside)
+const BlogFilterBar = ({
+  filters = ['blog', 'categories', 'lang']
+}) => {
+  const [openKey, setOpenKey] = useState(null);
+  const ref = React.useRef(null);
+  const toggle = key => setOpenKey(k => k === key ? null : key);
+  const closeAll = () => setOpenKey(null);
+  useEffect(() => {
+    const onDocClick = e => {
+      if (ref.current && !ref.current.contains(e.target)) closeAll();
+    };
+    document.addEventListener('click', onDocClick);
+    return () => document.removeEventListener('click', onDocClick);
+  }, []);
+  return /*#__PURE__*/React.createElement("div", {
+    className: "blog-filter-area",
+    ref: ref,
+    style: {
+      marginBottom: 48
+    }
+  }, /*#__PURE__*/React.createElement("span", {
+    className: "blog-filter-by-label"
+  }, "Filter by"), /*#__PURE__*/React.createElement("div", {
+    className: "blog-filter-row"
+  }, filters.map(slug => /*#__PURE__*/React.createElement(BlogFilter, {
+    key: slug,
+    slug: slug,
+    isOpen: openKey === slug,
+    onToggle: () => toggle(slug),
+    onCloseAll: closeAll
+  }))), /*#__PURE__*/React.createElement(BlogSort, {
+    isOpen: openKey === 'sort',
+    onToggle: () => toggle('sort'),
+    onCloseAll: closeAll
+  }));
+};
+
+/* ============================================================
+   PAGE 3: TUTORIALS
+   ============================================================ */
+const TutorialsPage = ({
+  onNav
+}) => {
+  const tutorials = [{
+    icon: /*#__PURE__*/React.createElement(Icon.Download, null),
+    title: 'Install Elasticsearch',
+    desc: 'See some convenient options for installing Elasticsearch.'
+  }, {
+    icon: /*#__PURE__*/React.createElement(Icon.Search, null),
+    title: 'Search tutorial',
+    desc: 'Create a complete search solution using Elasticsearch.'
+  }, {
+    icon: /*#__PURE__*/React.createElement("span", {
+      style: {
+        fontSize: 18
+      }
+    }, "🍥"),
+    title: 'Jina tutorial',
+    desc: 'Learn how to use the Jina v3 reranker, reader, and v3 embeddings model inside Elasticsearch.'
+  }, {
+    icon: /*#__PURE__*/React.createElement(Icon.Chat, null),
+    title: 'Chatbot tutorial',
+    desc: 'Build a chatbot based on large language models.',
+    active: true
+  }, {
+    icon: /*#__PURE__*/React.createElement(Icon.Hands, null),
+    title: 'Hands-on learning',
+    desc: 'Try out these self-paced tutorials for Search AI.'
+  }];
+  return /*#__PURE__*/React.createElement(React.Fragment, null, /*#__PURE__*/React.createElement(HeroSection, {
+    title: "Tutorial",
+    subtitle: /*#__PURE__*/React.createElement(React.Fragment, null, "Get started combining Elastic's search capabilities with cutting-edge machine-learning techniques, empowering you to create search solutions that deliver the precision and relevant results your users are looking for.", /*#__PURE__*/React.createElement("br", null), /*#__PURE__*/React.createElement("br", null), "Once you've mastered the basics, explore our ", /*#__PURE__*/React.createElement("a", {
+      href: "#",
+      className: "link-underline"
+    }, "examples"), " and ", /*#__PURE__*/React.createElement("a", {
+      href: "#",
+      className: "link-underline"
+    }, "blog"), " to see learn how our experts suggest taking your search experience even further."),
+    right: /*#__PURE__*/React.createElement(NewToElasticPanel, {
+      onNav: onNav
+    })
+  }), /*#__PURE__*/React.createElement("section", {
+    className: "pad-x",
+    style: {
+      paddingTop: '40px',
+      paddingBottom: '32px',
+      background: C.white
+    }
+  }, /*#__PURE__*/React.createElement("div", {
+    className: "grid-3"
+  }, tutorials.map((t, i) => /*#__PURE__*/React.createElement("button", {
+    key: i,
+    className: "card-hover",
+    style: {
+      background: C.white,
+      border: `1px solid ${C.darkInk}`,
+      padding: 20,
+      textAlign: 'left',
+      cursor: 'pointer',
+      display: 'flex',
+      flexDirection: 'column',
+      gap: 10,
+      minHeight: 137
+    }
+  }, /*#__PURE__*/React.createElement("div", {
+    style: {
+      display: 'flex',
+      alignItems: 'center',
+      gap: 12,
+      color: C.darkInk
+    }
+  }, /*#__PURE__*/React.createElement("span", {
+    style: {
+      color: C.teal
+    }
+  }, t.icon), /*#__PURE__*/React.createElement("h3", {
+    className: "font-display card-title t-h5",
+    style: {
+      margin: 0
+    }
+  }, t.title)), /*#__PURE__*/React.createElement("p", {
+    style: {
+      fontSize: 14,
+      color: C.darkInk,
+      opacity: 0.75,
+      margin: 0,
+      lineHeight: 1.55
+    }
+  }, t.desc))))), /*#__PURE__*/React.createElement(FinalCTA, null));
+};
+
+/* ============================================================
+   PAGE 4: EXAMPLES
+   ============================================================ */
+const ExamplesPage = ({
+  onNav
+}) => {
+  const apps = [{
+    title: 'Chatbot RAG Reference App',
+    tags: ['AI', 'Vector database']
+  }, {
+    title: 'OpenAI embeddings in Elasticsearch',
+    tags: ['Vector database', 'Relevance']
+  }, {
+    title: 'Relevance Workbench',
+    tags: ['Vector database', 'Relevance']
+  }];
+  const notebooks = [{
+    title: 'Semantic search quick start',
+    tags: ['Vector database', 'Relevance']
+  }, {
+    title: 'Semantic search using the Inference API with the OpenAI service',
+    tags: ['Vector database', 'Relevance'],
+    expanded: true
+  }, {
+    title: 'Semantic search quick start',
+    tags: ['Vector database', 'Relevance']
+  }, {
+    title: 'Semantic search quick start',
+    tags: ['Vector database', 'Relevance']
+  }, {
+    title: 'Semantic search quick start',
+    tags: ['Vector database', 'Relevance']
+  }, {
+    title: 'Semantic search quick start',
+    tags: ['Vector database']
+  }, {
+    title: 'Integrations LangChain question answering with self query retriever',
+    tags: ['Vector database']
+  }, {
+    title: 'Semantic search quick start',
+    tags: ['Vector database']
+  }];
+  return /*#__PURE__*/React.createElement(React.Fragment, null, /*#__PURE__*/React.createElement(HeroSection, {
+    title: "Example",
+    subtitle: "Practical how-to guides, interactive notebooks, and sample apps to get you started",
+    right: /*#__PURE__*/React.createElement(NewToElasticPanel, {
+      onNav: onNav
+    })
+  }), /*#__PURE__*/React.createElement("section", {
+    className: "pad-x",
+    style: {
+      paddingTop: '40px',
+      paddingBottom: '40px',
+      background: C.white
+    }
+  }, /*#__PURE__*/React.createElement("div", {
+    className: "grid-2 examples-cols"
+  }, /*#__PURE__*/React.createElement("div", {
+    style: {
+      display: 'flex',
+      flexDirection: 'column',
+      gap: 24
+    }
+  }, /*#__PURE__*/React.createElement(ExamplesPanel, {
+    title: "Apps",
+    items: apps,
+    accent: C.elasticBlue,
+    onNav: onNav
+  }), /*#__PURE__*/React.createElement("div", {
+    style: {
+      background: C.white,
+      border: `1px solid ${C.darkInk}`,
+      boxShadow: `8px 8px 0 0 ${C.teal}`
+    }
+  }, /*#__PURE__*/React.createElement("div", {
+    style: {
+      borderBottom: `1px solid ${C.mediumGray}`,
+      padding: 12
+    }
+  }, /*#__PURE__*/React.createElement("div", {
+    style: {
+      width: 8,
+      height: 8,
+      background: C.darkInk
+    }
+  })), /*#__PURE__*/React.createElement("div", {
+    style: {
+      padding: 20
+    }
+  }, /*#__PURE__*/React.createElement("h4", {
+    className: "font-display t-h6",
+    style: {
+      margin: 0,
+      marginBottom: 10,
+      color: C.darkInk
+    }
+  }, "Glossary"), /*#__PURE__*/React.createElement("p", {
+    style: {
+      fontSize: 14,
+      color: C.darkInk,
+      opacity: 0.75,
+      margin: 0,
+      marginBottom: 16,
+      lineHeight: 1.5
+    }
+  }, "Definitions and reference material for every term, concept, and acronym used across the Elasticsearch Labs library."), /*#__PURE__*/React.createElement("button", {
+    onClick: () => onNav('glossary'),
+    style: {
+      background: 'none',
+      border: 'none',
+      color: C.darkInk,
+      cursor: 'pointer'
+    }
+  }, /*#__PURE__*/React.createElement(Icon.Right, null))))), /*#__PURE__*/React.createElement(ExamplesPanel, {
+    title: "Notebook",
+    items: notebooks,
+    accent: C.yellow,
+    onNav: onNav
+  }))));
+};
+
+/* ============================================================
+   PAGE 5: INTEGRATIONS INDEX
+   ============================================================ */
+const IntegrationsPage = ({
+  onNav
+}) => {
+  const cats = ['All Integrations', 'Model Providers', 'RAG Frameworks', 'ETL & Data Prep'];
+  const [active, setActive] = useState('All Integrations');
+  const items = [{
+    name: 'Alibaba Cloud',
+    icon: '☁',
+    desc: 'Established in 2009, Alibaba Cloud is the digital technology and intelligence backbone of Alibaba Group. It offers a complete suite of cloud services worldwide.'
+  }, {
+    name: 'Amazon Bedrock',
+    icon: 'aws',
+    desc: 'A fully managed service offering foundation models from leading AI companies including Anthropic, Cohere, Meta, and Amazon through a single API.'
+  }, {
+    name: 'Anthropic',
+    icon: 'A\\',
+    desc: 'AI lab whose research and products put safety at the frontier. Anthropic creates reliable, interpretable, and steerable AI systems including Claude.',
+    highlighted: true
+  }, ...Array.from({
+    length: 9
+  }).map((_, i) => ({
+    name: ['Cohere', 'Google Vertex AI', 'Hugging Face'][i % 3],
+    icon: ['co', 'G', '🤗'][i % 3],
+    desc: 'Established in 2009, Alibaba Cloud is the digital technology backbone of Alibaba Group, offering elastic computing, database storage, big data analytics, and AI services worldwide.'
+  }))];
+  return /*#__PURE__*/React.createElement(React.Fragment, null, /*#__PURE__*/React.createElement(HeroSection, {
+    title: "Integrations",
+    subtitle: "Practical how-to guides, interactive notebooks, and sample apps to get you started",
+    right: /*#__PURE__*/React.createElement(LabsOrb, null)
+  }), /*#__PURE__*/React.createElement("section", {
+    className: "pad-x",
+    style: {
+      paddingTop: '24px',
+      paddingBottom: '16px',
+      background: C.white
+    }
+  }, /*#__PURE__*/React.createElement("div", {
+    style: {
+      display: 'flex',
+      gap: 4,
+      marginBottom: 24,
+      overflowX: 'auto',
+      paddingBottom: 4
+    }
+  }, cats.map(c => /*#__PURE__*/React.createElement("button", {
+    key: c,
+    onClick: () => setActive(c),
+    style: {
+      padding: '10px 16px',
+      border: 'none',
+      background: c === active ? C.darkInk : 'transparent',
+      color: c === active ? C.white : C.darkInk,
+      fontSize: 13,
+      fontFamily: 'Space Mono, monospace',
+      whiteSpace: 'nowrap'
+    }
+  }, c))), /*#__PURE__*/React.createElement("div", {
+    className: "grid-3"
+  }, items.map((it, i) => /*#__PURE__*/React.createElement("button", {
+    key: i,
+    onClick: () => onNav('integrationDetail'),
+    className: "card-hover",
+    style: {
+      background: C.white,
+      border: `1px solid ${C.darkInk}`,
+      padding: 20,
+      textAlign: 'left',
+      cursor: 'pointer'
+    }
+  }, /*#__PURE__*/React.createElement("div", {
+    style: {
+      width: 40,
+      height: 30,
+      background: C.lightGray,
+      marginBottom: 16,
+      display: 'flex',
+      alignItems: 'center',
+      justifyContent: 'center',
+      color: C.darkInk,
+      fontWeight: 700,
+      fontSize: 14
+    }
+  }, it.icon), /*#__PURE__*/React.createElement("h4", {
+    className: "font-display card-title t-h6",
+    style: {
+      margin: 0,
+      marginBottom: 8,
+      color: C.darkInk
+    }
+  }, it.name), /*#__PURE__*/React.createElement("p", {
+    style: {
+      fontSize: 13,
+      color: C.darkInk,
+      opacity: 0.75,
+      margin: 0,
+      lineHeight: 1.55
+    }
+  }, it.desc))))));
+};
+
+/* ============================================================
+   PAGE 6, 8, 11: BLOG ARTICLE VARIANTS
+   ============================================================ */
+const BlogArticlePage = ({
+  onNav,
+  variant = 1
+}) => {
+  const isNotebook = variant === 2;
+  const toc = isNotebook ? ['Learn how to perform semantic search using sentence transformers for text embeddings using the Elasticsearch Python client.'] : ['How Jingra benchmarks vector search engines: three phases', '1. Load: Establishing a known state', '2. Eval: Capturing true performance trade-offs', '3. Analyze: Structured reporting', 'Configuration-driven vector search benchmarking'];
+  const heroTitle = isNotebook ? 'Semantic search quick start' : 'Jingra: A Reproducible Framework for Vector Search Benchmarking';
+  const heroSubtitle = isNotebook ? "This interactive notebook will introduce you to some basic operations with Elasticsearch, using the official Elasticsearch Python client. You'll perform semantic search using Sentence Transformers for text embedding. Learn how to integrate traditional text-based search with semantic search, for a hybrid search system." : 'Jingra is an open source benchmarking framework that runs the same vector search workload across Elasticsearch, OpenSearch and Qdrant so you can compare engines under identical, reproducible conditions.';
+  return /*#__PURE__*/React.createElement(React.Fragment, null, /*#__PURE__*/React.createElement(HeroSection, {
+    breadcrumb: true,
+    onNav: onNav,
+    title: heroTitle,
+    subtitle: heroSubtitle
+  }), !isNotebook && /*#__PURE__*/React.createElement("section", {
+    className: "pad-x",
+    style: {
+      paddingTop: '12px',
+      paddingBottom: '20px',
+      background: C.white,
+      borderTop: `1px solid ${C.teal}`
+    }
+  }, /*#__PURE__*/React.createElement("div", {
+    className: "flex-mob-col",
+    style: {
+      display: 'flex',
+      justifyContent: 'space-between',
+      alignItems: 'center',
+      fontFamily: 'Space Mono, monospace',
+      fontSize: 11,
+      textTransform: 'uppercase',
+      letterSpacing: '0.05em',
+      color: C.darkInk,
+      opacity: 0.75,
+      gap: 12,
+      flexWrap: 'wrap'
+    }
+  }, /*#__PURE__*/React.createElement("div", {
+    style: {
+      display: 'flex',
+      gap: 20,
+      flexWrap: 'wrap'
+    }
+  }, /*#__PURE__*/React.createElement("span", null, "JUNE 01, 2026"), /*#__PURE__*/React.createElement("span", null, "Author Name, Author Name")), /*#__PURE__*/React.createElement("div", {
+    style: {
+      display: 'flex',
+      gap: 12,
+      flexWrap: 'wrap'
+    }
+  }, /*#__PURE__*/React.createElement("span", null, "AGENTIC AI"), /*#__PURE__*/React.createElement("span", null, ".NET"), /*#__PURE__*/React.createElement("span", null, "DEVELOPER EXPERIENCE")))), /*#__PURE__*/React.createElement("section", {
+    className: "pad-x",
+    style: {
+      paddingTop: '32px',
+      paddingBottom: '64px',
+      background: C.white
+    }
+  }, /*#__PURE__*/React.createElement("div", {
+    className: "sidebar-grid"
+  }, /*#__PURE__*/React.createElement("aside", null, /*#__PURE__*/React.createElement("div", {
+    className: "font-mono",
+    style: {
+      fontSize: 12,
+      textTransform: 'uppercase',
+      color: C.darkInk,
+      borderBottom: `2px solid ${C.teal}`,
+      paddingBottom: 6,
+      marginBottom: 16,
+      letterSpacing: '0.05em'
+    }
+  }, variant === 3 ? '//TITLE HERE' : isNotebook ? 'ABOUT THIS NOTEBOOK' : 'JUMP TO'), variant === 3 ? /*#__PURE__*/React.createElement("div", {
+    style: {
+      display: 'flex',
+      flexDirection: 'column',
+      gap: 10,
+      fontSize: 13,
+      color: C.darkInk
+    }
+  }, /*#__PURE__*/React.createElement("a", {
+    href: "#",
+    style: {
+      color: C.elasticBlue
+    },
+    className: "link-underline"
+  }, "Overview"), /*#__PURE__*/React.createElement("a", {
+    href: "#",
+    className: "hover-underline"
+  }, "Docker"), /*#__PURE__*/React.createElement("a", {
+    href: "#",
+    className: "hover-underline"
+  }, "Start-local"), /*#__PURE__*/React.createElement("a", {
+    href: "#",
+    className: "hover-underline"
+  }, "Elastic Cloud"), /*#__PURE__*/React.createElement("a", {
+    href: "#",
+    className: "hover-underline"
+  }, "Self-managed binary"), /*#__PURE__*/React.createElement("a", {
+    href: "#",
+    className: "hover-underline"
+  }, "Kubernetes (ECK)")) : /*#__PURE__*/React.createElement("ol", {
+    style: {
+      padding: 0,
+      margin: 0,
+      listStyle: 'none',
+      display: 'flex',
+      flexDirection: 'column',
+      gap: 10,
+      fontSize: 13,
+      color: C.darkInk,
+      lineHeight: 1.5
+    }
+  }, toc.map((t, i) => /*#__PURE__*/React.createElement("li", {
+    key: i,
+    style: {
+      paddingLeft: i === 0 || i === 4 ? 0 : 14
+    }
+  }, /*#__PURE__*/React.createElement("a", {
+    href: "#",
+    className: "hover-underline"
+  }, t)))), /*#__PURE__*/React.createElement("div", {
+    style: {
+      marginTop: 24
+    }
+  }, /*#__PURE__*/React.createElement("div", {
+    className: "font-mono",
+    style: {
+      fontSize: 12,
+      textTransform: 'uppercase',
+      color: C.darkInk,
+      borderBottom: `2px solid ${C.teal}`,
+      paddingBottom: 6,
+      marginBottom: 12,
+      letterSpacing: '0.05em'
+    }
+  }, variant === 2 ? '//TITLE HERE' : '//SHARE'), /*#__PURE__*/React.createElement("div", {
+    style: {
+      display: 'flex',
+      gap: 6
+    }
+  }, ['X', 'in', 'a'].map((l, i) => /*#__PURE__*/React.createElement("div", {
+    key: i,
+    style: {
+      width: 28,
+      height: 28,
+      border: `1px solid ${C.mediumGray}`,
+      display: 'flex',
+      alignItems: 'center',
+      justifyContent: 'center',
+      fontSize: 12,
+      background: i === 0 ? C.darkInk : C.white,
+      color: i === 0 ? C.white : C.darkInk
+    }
+  }, l))))), /*#__PURE__*/React.createElement("article", {
+    style: {
+      position: 'relative'
+    }
+  }, /*#__PURE__*/React.createElement("p", {
+    className: "t-body",
+    style: {
+      color: C.darkInk,
+      marginTop: 0
+    }
+  }, "Try out vector search for yourself using this ", /*#__PURE__*/React.createElement("a", {
+    href: "#",
+    className: "link-underline",
+    style: {
+      color: C.elasticBlue
+    }
+  }, "self-paced hands-on learning"), " for Search AI. You can start a ", /*#__PURE__*/React.createElement("a", {
+    href: "#",
+    className: "link-underline",
+    style: {
+      color: C.elasticBlue
+    }
+  }, "free cloud trial"), " or try Elastic on your ", /*#__PURE__*/React.createElement("a", {
+    href: "#",
+    className: "link-underline",
+    style: {
+      color: C.elasticBlue
+    }
+  }, "local machine"), " now."), isNotebook ? /*#__PURE__*/React.createElement("p", {
+    className: "t-body",
+    style: {
+      color: C.darkInk
+    }
+  }, "This interactive notebook will introduce you to some basic operations with Elasticsearch, using the official ", /*#__PURE__*/React.createElement("a", {
+    href: "#",
+    className: "link-underline",
+    style: {
+      color: C.elasticBlue
+    }
+  }, "Elasticsearch Python client"), ". You'll perform semantic search using ", /*#__PURE__*/React.createElement("a", {
+    href: "#",
+    className: "link-underline",
+    style: {
+      color: C.elasticBlue
+    }
+  }, "Sentence Transformers"), " for text embedding. Learn how to integrate traditional text-based search with semantic search, for a hybrid search system.") : /*#__PURE__*/React.createElement("p", {
+    className: "t-body",
+    style: {
+      color: C.darkInk
+    }
+  }, "Stop guessing if your ", /*#__PURE__*/React.createElement("a", {
+    href: "#",
+    className: "link-underline",
+    style: {
+      color: C.elasticBlue
+    }
+  }, "vector search"), " ", /*#__PURE__*/React.createElement("span", {
+    className: "glossary-term"
+  }, "benchmark", /*#__PURE__*/React.createElement("span", {
+    className: "glossary-pop",
+    role: "tooltip"
+  }, /*#__PURE__*/React.createElement("span", {
+    style: {
+      fontWeight: 700,
+      fontSize: 15,
+      marginBottom: 6,
+      display: 'block'
+    }
+  }, "Benchmark"), /*#__PURE__*/React.createElement("span", {
+    style: {
+      fontSize: 13,
+      lineHeight: 1.5,
+      marginBottom: 12,
+      opacity: 0.9,
+      display: 'block'
+    }
+  }, "A standardized test used to evaluate and compare model performance."), /*#__PURE__*/React.createElement("a", {
+    href: "#",
+    style: {
+      color: C.lightTeal,
+      fontSize: 13
+    },
+    className: "link-underline"
+  }, "View in Glossary"))), " results are accurate. Jingra is an open source framework that removes hidden warmup assumptions, inconsistent datasets, and vague definitions of when an index is actually ready to query."), /*#__PURE__*/React.createElement("h2", {
+    className: "font-display h2-md",
+    style: {
+      marginTop: 32,
+      marginBottom: 12,
+      color: C.darkInk
+    }
+  }, "How Jingra benchmarks vector search engines: three phases"), /*#__PURE__*/React.createElement("p", {
+    className: "t-body",
+    style: {
+      color: C.darkInk
+    }
+  }, "Jingra organizes benchmarking into three phases: Load, Eval, and Analyze. The point of this structure is simple: Every engine should be measured against the same dataset, workload, and reporting pipeline, under conditions you can control and reproduce."), [1, 2, 3].map(i => /*#__PURE__*/React.createElement("div", {
+    key: i,
+    style: {
+      marginTop: 24
+    }
+  }, /*#__PURE__*/React.createElement("h3", {
+    className: "font-display t-h6",
+    style: {
+      marginBottom: 8,
+      color: C.darkInk
+    }
+  }, "Sub-section heading"), /*#__PURE__*/React.createElement("p", {
+    className: "t-body",
+    style: {
+      color: C.darkInk
+    }
+  }, "Jingra is built in Java because Java is a good fit for this kind of infrastructure software: it has mature concurrency primitives, strong testing tools, and a well-understood runtime model."))), /*#__PURE__*/React.createElement("h2", {
+    className: "font-display h2-md",
+    style: {
+      marginTop: 32,
+      marginBottom: 12,
+      color: C.darkInk
+    }
+  }, "1. Load: Establishing a known state"), /*#__PURE__*/React.createElement("p", {
+    className: "t-body",
+    style: {
+      color: C.darkInk
+    }
+  }, "Jingra organizes benchmarking into three phases: Load, Eval, and Analyze."), [1, 2].map(i => /*#__PURE__*/React.createElement("div", {
+    key: i + 'b',
+    style: {
+      marginTop: 24
+    }
+  }, /*#__PURE__*/React.createElement("h3", {
+    className: "font-display t-h6",
+    style: {
+      marginBottom: 8,
+      color: C.darkInk
+    }
+  }, "Sub-section heading"), /*#__PURE__*/React.createElement("p", {
+    className: "t-body",
+    style: {
+      color: C.darkInk
+    }
+  }, "Jingra is built in Java because Java is a good fit for this kind of infrastructure software.")))))));
+};
+
+/* ============================================================
+   PAGE 7: CATEGORY
+   ============================================================ */
+const CategoryPage = ({
+  onNav
+}) => {
+  const posts = Array.from({
+    length: 12
+  }).map(() => ({
+    title: 'Build a RAG agent with Elasticsearch and GitHub Copilot SDK',
+    excerpt: "Wire Elasticsearch into the GitHub Copilot SDK as a RAG tool in five lines of C#, grounding your agent in your own logs, docs and data instead of model training data.",
+    tags: ['Agentic AI', '.NET', 'Developer experience'],
+    date: 'JUNE 01, 2026'
+  }));
+  return /*#__PURE__*/React.createElement(React.Fragment, null, /*#__PURE__*/React.createElement(HeroSection, {
+    title: "Category: Developer Experience",
+    subtitle: "Articles tagged Developer Experience",
+    right: /*#__PURE__*/React.createElement(LabsOrb, null)
+  }), /*#__PURE__*/React.createElement("section", {
+    className: "pad-x",
+    style: {
+      paddingTop: '24px',
+      paddingBottom: '12px',
+      background: C.white
+    }
+  }, /*#__PURE__*/React.createElement(BlogFilterBar, null)), /*#__PURE__*/React.createElement("section", {
+    className: "pad-x",
+    style: {
+      paddingTop: '0',
+      paddingBottom: '48px',
+      background: C.white
+    }
+  }, /*#__PURE__*/React.createElement("div", {
+    className: "grid-3"
+  }, posts.map((p, i) => /*#__PURE__*/React.createElement(ArticleCard, {
+    key: i,
+    tags: p.tags,
+    title: p.title,
+    excerpt: p.excerpt,
+    date: p.date,
+    label: i % 3 === 1 ? 'Observability Labs' : i % 3 === 2 ? 'Security Labs' : 'Elasticsearch Labs',
+    onClick: () => onNav('blogArticle'),
+    onNav: onNav
+  })))));
+};
+
+/* ============================================================
+   PAGE 9: GLOSSARY
+   ============================================================ */
+const GlossaryPage = ({
+  onNav
+}) => {
+  const letters = 'ABCDEFGHIJKLMNOPQRSTUVWXYZ'.split('');
+  return /*#__PURE__*/React.createElement(React.Fragment, null, /*#__PURE__*/React.createElement(HeroSection, {
+    breadcrumb: true,
+    onNav: onNav,
+    title: "Glossary",
+    subtitle: "Developer insights and practical how-to articles from our experts to inspire and empower your search experience."
+  }), /*#__PURE__*/React.createElement("section", {
+    className: "pad-x",
+    style: {
+      paddingTop: '24px',
+      paddingBottom: '48px',
+      background: C.white
+    }
+  }, /*#__PURE__*/React.createElement("div", {
+    className: "letters-nav font-mono",
+    style: {
+      display: 'flex',
+      gap: 20,
+      borderBottom: `1px solid ${C.mediumGray}`,
+      paddingBottom: 16,
+      marginBottom: 32,
+      fontWeight: 700,
+      color: C.darkInk,
+      justifyContent: 'space-between'
+    }
+  }, letters.map((l, i) => /*#__PURE__*/React.createElement("a", {
+    href: "#",
+    key: l,
+    style: {
+      borderBottom: i === 0 ? `2px solid ${C.teal}` : 'none',
+      paddingBottom: 4
+    },
+    className: "hover-underline"
+  }, l))), /*#__PURE__*/React.createElement("div", {
+    className: "sidebar-grid"
+  }, /*#__PURE__*/React.createElement("div", null, /*#__PURE__*/React.createElement("div", {
+    style: {
+      width: 56,
+      height: 56,
+      border: `1px solid ${C.mediumGray}`,
+      display: 'flex',
+      alignItems: 'center',
+      justifyContent: 'center',
+      fontSize: 28,
+      fontFamily: 'Space Grotesk',
+      fontWeight: 500,
+      marginBottom: 24
+    }
+  }, "A"), /*#__PURE__*/React.createElement("div", {
+    style: {
+      display: 'flex',
+      flexDirection: 'column',
+      gap: 10,
+      fontFamily: 'Space Mono, monospace',
+      fontSize: 12,
+      color: C.darkInk,
+      textTransform: 'uppercase'
+    }
+  }, /*#__PURE__*/React.createElement("a", {
+    href: "#",
+    className: "hover-underline"
+  }, "Nav Link"), /*#__PURE__*/React.createElement("a", {
+    href: "#",
+    className: "hover-underline"
+  }, "Nav Link"), /*#__PURE__*/React.createElement("a", {
+    href: "#",
+    className: "hover-underline"
+  }, "Nav Link"), /*#__PURE__*/React.createElement("a", {
+    href: "#",
+    className: "hover-underline"
+  }, "Nav Link"))), /*#__PURE__*/React.createElement("div", {
+    style: {
+      display: 'flex',
+      flexDirection: 'column',
+      gap: 28
+    }
+  }, [1, 2, 3].map(i => /*#__PURE__*/React.createElement("div", {
+    key: i
+  }, /*#__PURE__*/React.createElement("h3", {
+    className: "font-display t-h5",
+    style: {
+      margin: 0,
+      marginBottom: 10,
+      color: C.darkInk
+    }
+  }, "Adapter"), /*#__PURE__*/React.createElement("p", {
+    style: {
+      fontSize: 14,
+      lineHeight: 1.7,
+      color: C.darkInk,
+      margin: 0
+    }
+  }, "A quick sketch of the landscape. Our team ran roughly a dozen experiments aimed at a single question: how do you get an AI agent to use Elasticsearch correctly? \"Correctly\" here means using current API versions, following integration best practices, and leveraging the Elastic skill.")))))));
+};
+
+/* ============================================================
+   PAGE 10: BLOG SERIES
+   ============================================================ */
+const BlogSeriesPage = ({
+  onNav
+}) => {
+  const series = [{
+    parts: 6,
+    title: 'Advanced RAG techniques',
+    desc: "In this series, we'll discuss and implement techniques that may increase RAG performance.",
+    highlighted: true
+  }, {
+    parts: 3,
+    title: 'Context-Aware AI Agentic workflows with Elastic',
+    desc: "Learn about building context-aware AI agents with Elastic's new Agent Builder platform."
+  }, {
+    parts: 4,
+    title: 'Creating an LLM Agent newsroom with A2A protocol and MCP in Elasticsearch',
+    desc: 'Explore the concepts of A2A protocol and MCP and build an LLM agent newsroom from scratch.'
+  }, {
+    parts: 3,
+    title: 'Deploying and querying an e5 multilingual embedding model',
+    desc: 'Learn how to query and retrieve information in any language from multilingual datasets.'
+  }, {
+    parts: 6,
+    title: 'Elasticsearch geospatial search',
+    desc: 'This series covers how to use the new geospatial search features in ES|QL.'
+  }, {
+    parts: 7,
+    title: 'Elasticsearch in JavaScript the proper way',
+    desc: 'Learn how to create a production-ready Elasticsearch backend in JavaScript.'
+  }, {
+    parts: 6,
+    title: 'Entity resolution with Elasticsearch',
+    desc: 'Exploring a transparent, retrieval-first approach to entity resolution using LLMs.'
+  }, {
+    parts: 9,
+    title: 'Evaluating search relevance',
+    desc: 'Blog posts discussing how to think about evaluating your own search systems.'
+  }, {
+    parts: 3,
+    title: 'Fast Approximate ES|QL',
+    desc: "Introducing the work we've done on a fast approximate querying mode for ES|QL."
+  }, {
+    parts: 11,
+    title: 'GenAI for customer support',
+    desc: 'Inside look at how were using generative AI in customer support.'
+  }];
+  return /*#__PURE__*/React.createElement(React.Fragment, null, /*#__PURE__*/React.createElement(HeroSection, {
+    title: "Blog",
+    subtitle: "Developer insights and practical how-to articles from our experts to inspire and empower your search experience",
+    right: /*#__PURE__*/React.createElement(LabsOrb, null)
+  }), /*#__PURE__*/React.createElement("section", {
+    className: "pad-x",
+    style: {
+      paddingTop: '24px',
+      paddingBottom: '16px',
+      background: C.white
+    }
+  }, /*#__PURE__*/React.createElement("div", {
+    style: {
+      display: 'flex',
+      gap: 32,
+      borderBottom: `1px solid ${C.mediumGray}`,
+      marginBottom: 24
+    }
+  }, /*#__PURE__*/React.createElement("button", {
+    onClick: () => onNav('blog'),
+    style: {
+      padding: '10px 0',
+      background: 'none',
+      border: 'none',
+      fontSize: 15,
+      fontWeight: 500,
+      color: C.darkInk
+    }
+  }, "Blog"), /*#__PURE__*/React.createElement("button", {
+    style: {
+      padding: '10px 0',
+      background: 'none',
+      border: 'none',
+      borderBottom: `2px solid ${C.teal}`,
+      fontSize: 15,
+      fontWeight: 500,
+      color: C.darkInk
+    }
+  }, "Series"))), /*#__PURE__*/React.createElement("section", {
+    className: "pad-x",
+    style: {
+      paddingTop: '0',
+      paddingBottom: '48px',
+      background: C.white
+    }
+  }, /*#__PURE__*/React.createElement("div", {
+    className: "grid-2"
+  }, series.map((s, i) => /*#__PURE__*/React.createElement("button", {
+    key: i,
+    onClick: () => onNav('blogArticle'),
+    className: "card-hover",
+    style: {
+      background: C.white,
+      border: `1px solid ${C.darkInk}`,
+      padding: 20,
+      textAlign: 'left',
+      cursor: 'pointer'
+    }
+  }, /*#__PURE__*/React.createElement("div", {
+    className: "font-mono",
+    style: {
+      fontSize: 11,
+      textTransform: 'uppercase',
+      color: C.darkInk,
+      marginBottom: 12,
+      letterSpacing: '0.05em',
+      display: 'flex',
+      justifyContent: 'space-between',
+      alignItems: 'center',
+      gap: 12
+    }
+  }, /*#__PURE__*/React.createElement("span", {
+    style: {
+      color: C.elasticBlue,
+      fontWeight: 700
+    }
+  }, s.parts, " PARTS"), /*#__PURE__*/React.createElement("span", {
+    style: {
+      borderTop: `1px dashed ${C.darkGray}`,
+      flex: 1
+    }
+  }), /*#__PURE__*/React.createElement("span", null, "SERIES")), /*#__PURE__*/React.createElement("h3", {
+    className: "font-display card-title t-h5",
+    style: {
+      margin: 0,
+      marginBottom: 10,
+      color: C.darkInk
+    }
+  }, s.title), /*#__PURE__*/React.createElement("p", {
+    style: {
+      fontSize: 13,
+      color: C.darkInk,
+      opacity: 0.75,
+      margin: 0,
+      lineHeight: 1.6
+    }
+  }, s.desc))))));
+};
+
+/* ============================================================
+   PAGE 12: INTEGRATION DETAIL
+   ============================================================ */
+const IntegrationDetailPage = ({
+  onNav
+}) => {
+  const providers = ['Cohere', 'Hugging Face', 'OpenAI', 'LangChain', 'LlamaIndex', 'Google Vertex AI', 'Amazon Bedrock', 'Mistral', 'Microsoft Azure AI', 'Alibaba Cloud', 'Red Hat', 'Vectorize.io', 'IBM watsonx', 'Anthropic', 'Jina AI', 'NVIDIA'];
+  const code = t => /*#__PURE__*/React.createElement("code", {
+    style: {
+      background: C.lightGray,
+      padding: '2px 6px',
+      fontFamily: 'Space Mono, monospace',
+      fontSize: 13
+    }
+  }, t);
+  return /*#__PURE__*/React.createElement(React.Fragment, null, /*#__PURE__*/React.createElement(HeroSection, {
+    breadcrumb: true,
+    onNav: onNav,
+    title: "Conhere: A Reproducible Framework for Vector Search Benchmarking",
+    subtitle: "Jingra is an open source benchmarking framework that runs the same vector search workload across Elasticsearch, OpenSearch and Qdrant so you can compare engines under identical, reproducible conditions."
+  }), /*#__PURE__*/React.createElement("section", {
+    className: "pad-x",
+    style: {
+      paddingTop: '32px',
+      paddingBottom: '64px',
+      background: C.white
+    }
+  }, /*#__PURE__*/React.createElement("div", {
+    className: "sidebar-grid"
+  }, /*#__PURE__*/React.createElement("aside", null, /*#__PURE__*/React.createElement("div", {
+    className: "font-mono",
+    style: {
+      fontSize: 12,
+      textTransform: 'uppercase',
+      color: C.darkInk,
+      borderBottom: `2px solid ${C.teal}`,
+      paddingBottom: 6,
+      marginBottom: 16,
+      letterSpacing: '0.05em'
+    }
+  }, "//TITLE HERE"), /*#__PURE__*/React.createElement("div", {
+    style: {
+      display: 'flex',
+      flexDirection: 'column',
+      gap: 14,
+      fontSize: 13
+    }
+  }, providers.map((p, i) => /*#__PURE__*/React.createElement("a", {
+    href: "#",
+    key: p,
+    style: {
+      color: i === 0 ? C.elasticBlue : C.darkInk,
+      textDecoration: i === 0 ? 'underline' : 'none',
+      textUnderlineOffset: 3
+    },
+    className: "hover-underline"
+  }, p)))), /*#__PURE__*/React.createElement("article", null, /*#__PURE__*/React.createElement("div", {
+    className: "font-mono",
+    style: {
+      borderBottom: `1px dashed ${C.darkGray}`,
+      paddingBottom: 8,
+      marginBottom: 20,
+      fontSize: 11,
+      textTransform: 'uppercase',
+      color: C.darkInk,
+      display: 'flex',
+      justifyContent: 'space-between'
+    }
+  }, /*#__PURE__*/React.createElement("span", null, "/ Integration"), /*#__PURE__*/React.createElement(Icon.Add, {
+    s: 10
+  })), /*#__PURE__*/React.createElement("p", {
+    className: "t-body",
+    style: {
+      color: C.darkInk,
+      marginTop: 0
+    }
+  }, "Cohere provides a family of production-grade large language models optimized for enterprise retrieval workloads — including embed models for dense vector search, rerank for late-stage relevance refinement, and Command-R for retrieval-augmented generation. All three are available natively from inside Elasticsearch via the Inference API."), /*#__PURE__*/React.createElement("p", {
+    className: "t-body",
+    style: {
+      color: C.darkInk
+    }
+  }, "The integration ships in Elasticsearch 8.13+ and Elastic Cloud Serverless. Once configured, you can call Cohere models from ingest pipelines, search queries, or downstream retrieval stages using the same inference endpoint pattern you use for ELSER."), /*#__PURE__*/React.createElement("h2", {
+    className: "font-display h2-md",
+    style: {
+      marginTop: 32,
+      marginBottom: 12,
+      color: C.darkInk
+    }
+  }, "What it does"), /*#__PURE__*/React.createElement("p", {
+    className: "t-body",
+    style: {
+      color: C.darkInk
+    }
+  }, "The integration registers Cohere as an inference provider in your cluster. Once a model endpoint is created, Elasticsearch handles the API key, request batching, retry logic, and response parsing."), /*#__PURE__*/React.createElement("p", {
+    className: "t-body",
+    style: {
+      color: C.darkInk
+    }
+  }, "Three model families are supported: ", code('embed-english-v3.0'), " and ", code('embed-multilingual-v3.0'), " for dense embeddings (1024 dimensions), ", code('rerank-english-v3.0'), " for cross-encoder reranking, and ", code('command-r-plus'), " for grounded generation in RAG pipelines."), /*#__PURE__*/React.createElement("h2", {
+    className: "font-display h2-md",
+    style: {
+      marginTop: 32,
+      marginBottom: 12,
+      color: C.darkInk
+    }
+  }, "Setup"), /*#__PURE__*/React.createElement("p", {
+    className: "t-body",
+    style: {
+      color: C.darkInk
+    }
+  }, "Create the inference endpoint via the ", code('PUT _inference'), " API. You'll need a Cohere API key and the model name. The endpoint becomes a reusable handle — reference it from your mapping for automatic embedding at ingest."), /*#__PURE__*/React.createElement("h2", {
+    className: "font-display h2-md",
+    style: {
+      marginTop: 32,
+      marginBottom: 12,
+      color: C.darkInk
+    }
+  }, "Usage patterns"), /*#__PURE__*/React.createElement("p", {
+    className: "t-body",
+    style: {
+      color: C.darkInk
+    }
+  }, "The most common pattern is a two-stage retrieval: first-pass BM25 or dense kNN to surface candidates, then Cohere rerank to reorder the top 100 by semantic relevance. This combination consistently outperforms either stage alone on standard IR benchmarks (BEIR, MIRACL)."), /*#__PURE__*/React.createElement("h2", {
+    className: "font-display h2-md",
+    style: {
+      marginTop: 32,
+      marginBottom: 12,
+      color: C.darkInk
+    }
+  }, "Cost and scaling"), /*#__PURE__*/React.createElement("p", {
+    className: "t-body",
+    style: {
+      color: C.darkInk
+    }
+  }, "Cohere bills per million input tokens, with separate prices for embed, rerank, and generate. For high-volume ingest, batch your ", code('embed'), " calls. For latency-sensitive workloads, deploy in the same cloud region as your Elasticsearch cluster.")))));
+};
+
+/* ============================================================
+   PAGE 13: AUTHOR PROFILE
+   ============================================================ */
+const AuthorProfilePage = ({
+  onNav
+}) => {
+  const posts = Array.from({
+    length: 6
+  }).map((_, i) => ({
+    title: 'Build a RAG agent with Elasticsearch and GitHub Copilot SDK',
+    excerpt: "Wire Elasticsearch into the GitHub Copilot SDK as a RAG tool in five lines of C#, grounding your agent in your own logs, docs and data instead of model training data.",
+    tags: ['Agentic AI', '.NET', 'Developer experience'],
+    date: 'JUNE 01, 2026',
+    label: i === 0 ? 'Observability Labs' : i === 1 ? 'Security Labs' : 'Elasticsearch Labs'
+  }));
+  return /*#__PURE__*/React.createElement(React.Fragment, null, /*#__PURE__*/React.createElement("section", {
+    className: "pad-x",
+    style: {
+      background: C.white,
+      paddingTop: '32px',
+      paddingBottom: '20px'
+    }
+  }, /*#__PURE__*/React.createElement("div", {
+    className: "author-grid",
+    style: {
+      background: C.white,
+      border: `1px solid ${C.darkInk}`,
+      padding: 24
+    }
+  }, /*#__PURE__*/React.createElement("div", {
+    style: {
+      background: C.lightGray,
+      aspectRatio: '1',
+      display: 'flex',
+      alignItems: 'center',
+      justifyContent: 'center'
+    }
+  }, /*#__PURE__*/React.createElement("div", {
+    style: {
+      width: 90,
+      height: 90,
+      border: `1px solid ${C.mediumGray}`,
+      display: 'flex',
+      alignItems: 'center',
+      justifyContent: 'center',
+      fontFamily: 'Space Grotesk',
+      fontSize: 40,
+      fontWeight: 500,
+      color: C.darkInk,
+      background: C.white
+    }
+  }, "AW")), /*#__PURE__*/React.createElement("div", null, /*#__PURE__*/React.createElement("h1", {
+    className: "font-display t-h1",
+    style: {
+      margin: 0,
+      marginBottom: 4,
+      color: C.darkInk
+    }
+  }, "Alexander Wert"), /*#__PURE__*/React.createElement("div", {
+    className: "font-mono",
+    style: {
+      fontSize: 12,
+      textTransform: 'uppercase',
+      color: C.darkInk,
+      opacity: 0.7,
+      letterSpacing: '0.05em',
+      marginBottom: 16
+    }
+  }, "Senior Software Engineer"), /*#__PURE__*/React.createElement("p", {
+    style: {
+      fontSize: 14,
+      lineHeight: 1.7,
+      color: C.darkInk,
+      margin: 0,
+      marginBottom: 20
+    }
+  }, "Alexander writes about hybrid retrieval, semantic search, and the practical realities of running Elasticsearch in production. Based in Buenos Aires, he's spent the last six years helping teams take search ideas from prototype to scaled deployment."), /*#__PURE__*/React.createElement("div", {
+    className: "font-mono",
+    style: {
+      fontSize: 11,
+      textTransform: 'uppercase',
+      color: C.darkInk,
+      opacity: 0.6,
+      marginBottom: 12,
+      letterSpacing: '0.1em'
+    }
+  }, "/ Connect with Alexander Wert"), /*#__PURE__*/React.createElement("button", {
+    style: {
+      background: 'none',
+      border: `1px solid ${C.mediumGray}`,
+      padding: '10px 16px',
+      fontSize: 13,
+      fontFamily: 'Space Mono, monospace',
+      textTransform: 'uppercase',
+      display: 'inline-flex',
+      alignItems: 'center',
+      gap: 8,
+      cursor: 'pointer'
+    }
+  }, /*#__PURE__*/React.createElement("span", {
+    style: {
+      width: 12,
+      height: 12,
+      background: C.darkInk
+    }
+  }), " Subscribe")))), /*#__PURE__*/React.createElement("section", {
+    className: "pad-x",
+    style: {
+      paddingTop: '24px',
+      paddingBottom: '64px',
+      background: C.white
+    }
+  }, /*#__PURE__*/React.createElement("div", {
+    className: "font-mono",
+    style: {
+      borderBottom: `2px solid ${C.teal}`,
+      paddingBottom: 8,
+      marginBottom: 24,
+      fontSize: 13,
+      textTransform: 'uppercase',
+      color: C.darkInk,
+      letterSpacing: '0.05em'
+    }
+  }, "// Articles by Alexander Wert"), /*#__PURE__*/React.createElement("div", {
+    className: "grid-3"
+  }, posts.map((p, i) => /*#__PURE__*/React.createElement(ArticleCard, {
+    key: i,
+    tags: p.tags,
+    title: p.title,
+    excerpt: p.excerpt,
+    date: p.date,
+    label: p.label,
+    onClick: () => onNav('blogArticle'),
+    onNav: onNav
+  })))));
+};
+
+/* ============ PAGE SWITCHER =========== */
+const PageSwitcher = ({
+  page,
+  setPage
+}) => {
+  const barRef = React.useRef(null);
+  useEffect(() => {
+    const setVar = () => {
+      const h = barRef.current ? barRef.current.offsetHeight : 0;
+      document.documentElement.style.setProperty('--switcher-h', h + 'px');
+    };
+    setVar();
+    window.addEventListener('resize', setVar);
+    return () => window.removeEventListener('resize', setVar);
+  }, []);
+  const pages = [{
+    key: 'home',
+    label: '1. Home'
+  }, {
+    key: 'blog',
+    label: '2. Blog list'
+  }, {
+    key: 'tutorials',
+    label: '3. Tutorials'
+  }, {
+    key: 'examples',
+    label: '4. Examples'
+  }, {
+    key: 'integrations',
+    label: '5. Integrations'
+  }, {
+    key: 'blogArticle',
+    label: '6. Article v1'
+  }, {
+    key: 'category',
+    label: '7. Category'
+  }, {
+    key: 'blogArticle2',
+    label: '8. Article v2'
+  }, {
+    key: 'glossary',
+    label: '9. Glossary'
+  }, {
+    key: 'blogSeries',
+    label: '10. Series'
+  }, {
+    key: 'blogArticle3',
+    label: '11. Article v3'
+  }, {
+    key: 'integrationDetail',
+    label: '12. Cohere'
+  }, {
+    key: 'author',
+    label: '13. Author'
+  }];
+  return /*#__PURE__*/React.createElement("div", {
+    ref: barRef,
+    style: {
+      position: 'sticky',
+      top: 0,
+      zIndex: 100,
+      background: C.darkInk,
+      color: C.white,
+      padding: '8px 16px',
+      display: 'flex',
+      gap: 4,
+      overflowX: 'auto',
+      fontSize: 11,
+      fontFamily: 'Space Mono, monospace'
+    }
+  }, /*#__PURE__*/React.createElement("div", {
+    style: {
+      marginRight: 8,
+      opacity: 0.6,
+      whiteSpace: 'nowrap',
+      alignSelf: 'center'
+    }
+  }, "13 SCREENS →"), pages.map(p => /*#__PURE__*/React.createElement("button", {
+    key: p.key,
+    onClick: () => setPage(p.key),
+    style: {
+      background: page === p.key ? C.teal : 'transparent',
+      color: page === p.key ? C.darkInk : C.white,
+      border: `1px solid ${page === p.key ? C.teal : 'rgba(255,255,255,0.2)'}`,
+      padding: '4px 10px',
+      fontSize: 11,
+      cursor: 'pointer',
+      whiteSpace: 'nowrap'
+    }
+  }, p.label)));
+};
+
+/* ============================================================
+   ROOT
+   ============================================================ */
+function App() {
+  const [page, setPage] = useState('home');
+  const isMobile = useIsMobile();
+  const onNav = p => {
+    setPage(p);
+    if (typeof window !== 'undefined') window.scrollTo({
+      top: 0,
+      behavior: 'smooth'
+    });
+  };
+  const renderPage = () => {
+    switch (page) {
+      case 'home':
+        return /*#__PURE__*/React.createElement(HomePage, {
+          onNav: onNav
+        });
+      case 'blog':
+        return /*#__PURE__*/React.createElement(BlogListPage, {
+          onNav: onNav
+        });
+      case 'tutorials':
+        return /*#__PURE__*/React.createElement(TutorialsPage, {
+          onNav: onNav
+        });
+      case 'examples':
+        return /*#__PURE__*/React.createElement(ExamplesPage, {
+          onNav: onNav
+        });
+      case 'integrations':
+        return /*#__PURE__*/React.createElement(IntegrationsPage, {
+          onNav: onNav
+        });
+      case 'blogArticle':
+        return /*#__PURE__*/React.createElement(BlogArticlePage, {
+          onNav: onNav,
+          variant: 1
+        });
+      case 'category':
+        return /*#__PURE__*/React.createElement(CategoryPage, {
+          onNav: onNav
+        });
+      case 'blogArticle2':
+        return /*#__PURE__*/React.createElement(BlogArticlePage, {
+          onNav: onNav,
+          variant: 2
+        });
+      case 'glossary':
+        return /*#__PURE__*/React.createElement(GlossaryPage, {
+          onNav: onNav
+        });
+      case 'blogSeries':
+        return /*#__PURE__*/React.createElement(BlogSeriesPage, {
+          onNav: onNav
+        });
+      case 'blogArticle3':
+        return /*#__PURE__*/React.createElement(BlogArticlePage, {
+          onNav: onNav,
+          variant: 3
+        });
+      case 'integrationDetail':
+        return /*#__PURE__*/React.createElement(IntegrationDetailPage, {
+          onNav: onNav
+        });
+      case 'author':
+        return /*#__PURE__*/React.createElement(AuthorProfilePage, {
+          onNav: onNav
+        });
+      default:
+        return /*#__PURE__*/React.createElement(HomePage, {
+          onNav: onNav
+        });
+    }
+  };
+  return /*#__PURE__*/React.createElement("div", {
+    className: "font-sans",
+    style: {
+      background: C.white,
+      color: C.darkInk,
+      minHeight: '100vh'
+    }
+  }, /*#__PURE__*/React.createElement(GlobalStyles, null), /*#__PURE__*/React.createElement(PageSwitcher, {
+    page: page,
+    setPage: setPage
+  }), /*#__PURE__*/React.createElement(MainNav, {
+    onNav: onNav,
+    currentPage: page,
+    isMobile: isMobile
+  }), renderPage(), /*#__PURE__*/React.createElement(Footer, null));
+}
+const rootEl = document.getElementById('root');
+ReactDOM.createRoot(rootEl).render(/*#__PURE__*/React.createElement(App, null));
+  </script>
+</body>
+</html>
