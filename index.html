@@ -106,12 +106,12 @@ const GlobalStyles = () => {
        Every heading picks a real rung; nothing invented.
        Headings use .font-display (Space Grotesk → Mier B when loaded).
        ============================================================ */
-    .t-h1   { font-family: 'Space Grotesk','Inter',sans-serif; font-weight: 700; font-size: 48px; line-height: 58px; letter-spacing: -0.01em; }
-    .t-h2   { font-family: 'Space Grotesk','Inter',sans-serif; font-weight: 700; font-size: 40px; line-height: 48px; letter-spacing: -0.01em; }
-    .t-h3   { font-family: 'Space Grotesk','Inter',sans-serif; font-weight: 700; font-size: 32px; line-height: 38px; letter-spacing: -0.01em; }
-    .t-h4   { font-family: 'Space Grotesk','Inter',sans-serif; font-weight: 700; font-size: 28px; line-height: 34px; letter-spacing: -0.01em; }
-    .t-h5   { font-family: 'Space Grotesk','Inter',sans-serif; font-weight: 600; font-size: 24px; line-height: 28px; letter-spacing: -0.01em; }
-    .t-h6   { font-family: 'Space Grotesk','Inter',sans-serif; font-weight: 600; font-size: 18px; line-height: 22px; letter-spacing: -0.005em; }
+    .t-h1   { font-family: 'Space Grotesk','Inter',sans-serif; font-weight: 500; font-size: 48px; line-height: 58px; letter-spacing: -0.01em; }
+    .t-h2   { font-family: 'Space Grotesk','Inter',sans-serif; font-weight: 500; font-size: 40px; line-height: 48px; letter-spacing: -0.01em; }
+    .t-h3   { font-family: 'Space Grotesk','Inter',sans-serif; font-weight: 500; font-size: 32px; line-height: 38px; letter-spacing: -0.01em; }
+    .t-h4   { font-family: 'Space Grotesk','Inter',sans-serif; font-weight: 500; font-size: 28px; line-height: 34px; letter-spacing: -0.01em; }
+    .t-h5   { font-family: 'Space Grotesk','Inter',sans-serif; font-weight: 500; font-size: 24px; line-height: 28px; letter-spacing: -0.01em; }
+    .t-h6   { font-family: 'Space Grotesk','Inter',sans-serif; font-weight: 500; font-size: 18px; line-height: 22px; letter-spacing: -0.005em; }
     .t-topic { font-family: 'Space Mono','Courier New',monospace; font-weight: 700; font-size: 14px; line-height: 24px; text-transform: uppercase; letter-spacing: 0.05em; }
     .t-body    { font-family: 'Inter',sans-serif; font-weight: 400; font-size: 16px; line-height: 26px; }
     .t-body-md { font-family: 'Inter',sans-serif; font-weight: 400; font-size: 14px; line-height: 24px; }
@@ -143,6 +143,22 @@ const GlobalStyles = () => {
     .card-title { text-decoration: none; text-underline-offset: 3px; transition: text-decoration 0.1s; }
     .card-hover:hover .card-title,
     .featured-large:hover .card-title { text-decoration: underline; }
+
+    /* Article card — lab label ("Elasticsearch Labs" / "Observability Labs" / etc.)
+       sits as an inline eyebrow at the top of the card with a small teal dot.
+       On mobile the big thumbnail hides; the label stays exactly where it is,
+       above the tag row. */
+    .article-card-lab {
+      display: flex; align-items: center; gap: 6px;
+      font-family: 'Space Mono', monospace; font-size: 10px;
+      text-transform: uppercase; letter-spacing: 0.05em; color: ${C.darkInk};
+      margin-bottom: 8px;
+    }
+    .article-card-lab-dot { background: ${C.teal}; width: 8px; height: 8px; display: inline-block; flex-shrink: 0; }
+    .article-card-lab-text { white-space: nowrap; overflow: hidden; text-overflow: ellipsis; }
+    @media (max-width: 768px) {
+      .article-card-thumb { display: none; }
+    }
     .grid-bg {
       background-color: ${C.lightGray};
       background-image:
@@ -212,7 +228,7 @@ const GlobalStyles = () => {
     @media (max-width: 768px) { .grid-2.examples-cols { gap: 32px; } }
 
     /* hero-title = H1 (48/58). Marker 10px smaller. */
-    .hero-title { font-size: 48px; line-height: 58px; font-weight: 700; }
+    .hero-title { font-size: 48px; line-height: 58px; font-weight: 500; }
     @media (max-width: 992px)  { .hero-title { font-size: 40px; line-height: 48px; } }
     @media (max-width: 576px)  { .hero-title { font-size: 32px; line-height: 38px; } }
 
@@ -298,7 +314,7 @@ const GlobalStyles = () => {
        e.g. style={{ '--arrow-x': '-70px', '--arrow-y': '10px' }} */
     .intro-callout-wrap {
       position: relative; display: inline-block;
-      transform: translate(var(--callout-x, 88px), var(--callout-y, 53px));
+      transform: translate(var(--callout-x, 80px), var(--callout-y, 61px));
     }
     .intro-callout-arrow {
       position: absolute;
@@ -313,7 +329,7 @@ const GlobalStyles = () => {
     @media (max-width: 1280px) { .intro-callout-arrow { display: none; } }
 
     /* h2-lg = section titles = H2 (40/48) */
-    .h2-lg { font-size: 40px; line-height: 48px; font-weight: 700; }
+    .h2-lg { font-size: 40px; line-height: 48px; font-weight: 500; }
     @media (max-width: 992px)  { .h2-lg { font-size: 32px; line-height: 40px; } }
     @media (max-width: 576px)  { .h2-lg { font-size: 26px; line-height: 32px; } }
 
@@ -341,7 +357,7 @@ const GlobalStyles = () => {
     }
 
     /* h2-md = in-article H2 / CTA heading = H3 (32/38) */
-    .h2-md { font-size: 32px; line-height: 38px; font-weight: 700; }
+    .h2-md { font-size: 32px; line-height: 38px; font-weight: 500; }
     @media (max-width: 992px)  { .h2-md { font-size: 28px; line-height: 34px; } }
     @media (max-width: 576px)  { .h2-md { font-size: 24px; line-height: 30px; } }
 
@@ -371,6 +387,13 @@ const GlobalStyles = () => {
     .side-rows { display: flex; flex-direction: column; gap: 0; }
     .side-row-title { text-decoration: none; text-underline-offset: 3px; }
     .side-row:hover .side-row-title { text-decoration: underline; }
+    /* Thumbnail gets the same hover treatment as the article cards
+       (border darkens + offset shadow) when hovering the row. */
+    .side-row-thumb { transition: border-color 0.15s ease, box-shadow 0.15s ease; }
+    .side-row:hover .side-row-thumb {
+      border-color: ${C.darkInk} !important;
+      box-shadow: 4px 4px 0 0 ${C.darkInk};
+    }
     .side-row:last-child { border-bottom: none !important; margin-bottom: 0 !important; padding-bottom: 0 !important; }
     @media (max-width: 576px) {
       .side-row { grid-template-columns: 1fr !important; gap: 12px !important; }
@@ -383,11 +406,27 @@ const GlobalStyles = () => {
     .get-started-cards { display: grid; grid-template-columns: 1fr 1fr; gap: 32px; }
     @media (max-width: 576px) { .get-started-cards { grid-template-columns: 1fr; gap: 16px; } }
 
-    .cta-grid { display: grid; grid-template-columns: 200px 1fr; gap: 48px; }
-    @media (max-width: 768px) { .cta-grid { grid-template-columns: 1fr; gap: 24px; text-align: center; } }
+    .cta-grid { display: block; }
+    @media (max-width: 768px) { .cta-grid { text-align: center; } }
+    /* Center the CTA buttons when stacked on mobile */
+    @media (max-width: 768px) { .cta-buttons { justify-content: center; } }
+
+    /* Hero grid: right slot hides on mobile — collapse its column too so the
+       text uses the full width instead of squeezing into 60%. */
+    @media (max-width: 768px) { .hero-grid { grid-template-columns: 1fr !important; } }
+
+    /* Category tabs (All Integrations / Model Providers / ...) — desktop row;
+       mobile: wrap into multiple rows of pills instead of a horizontal scrollbar. */
+    .cat-tabs { display: flex; gap: 4px; margin-bottom: 24px; }
+    @media (max-width: 768px) { .cat-tabs { flex-wrap: wrap; gap: 8px; } }
 
     .author-grid { display: grid; grid-template-columns: 200px 1fr; gap: 32px; }
-    @media (max-width: 768px) { .author-grid { grid-template-columns: 1fr; gap: 24px; } }
+    @media (max-width: 768px) {
+      .author-grid { grid-template-columns: 1fr; gap: 24px; }
+      /* Avatar box: cap it on mobile instead of full-width giant square */
+      .author-avatar { width: 120px; }
+      .author-avatar > div { width: 64px !important; height: 64px !important; font-size: 28px !important; }
+    }
 
     .letters-nav a { font-size: 15px; }
     @media (max-width: 768px) { .letters-nav { flex-wrap: wrap; gap: 12px !important; } .letters-nav a { font-size: 13px; } }
@@ -517,7 +556,7 @@ const GlobalStyles = () => {
     .blog-sort-opt:last-child { border-bottom: none; }
     .blog-sort-opt:hover, .blog-sort-opt.is-active { background: #111010; color: #FFFFFF; }
 
-    @media (max-width: 576px) {
+    @media (max-width: 768px) {
       .blog-filter-area { grid-template-columns: 1fr; }
       .blog-filter-area .blog-sort { grid-column: 1; grid-row: 3; justify-self: start; margin-left: 0; margin-top: 8px; }
       .blog-filter-row { flex-direction: column; align-items: stretch; }
@@ -1665,38 +1704,30 @@ const ArticleCard = ({
   date,
   author = 'Author Name',
   label = 'Elasticsearch Labs',
+  showLab = false,
   onClick,
   onNav
 }) => /*#__PURE__*/React.createElement("div", {
   onClick: onClick,
-  className: "card-hover",
+  className: "card-hover article-card",
   style: {
     background: C.white,
     border: `1px solid ${C.darkInk}`,
     padding: 16,
     cursor: 'pointer',
     display: 'flex',
-    flexDirection: 'column'
+    flexDirection: 'column',
+    position: 'relative'
   }
-}, /*#__PURE__*/React.createElement("div", {
-  style: {
-    fontSize: 10,
-    fontFamily: 'Space Mono, monospace',
-    textTransform: 'uppercase',
-    color: C.darkInk,
-    marginBottom: 8,
-    letterSpacing: '0.05em'
-  }
+}, showLab && /*#__PURE__*/React.createElement("div", {
+  className: "article-card-lab",
+  title: label
 }, /*#__PURE__*/React.createElement("span", {
-  style: {
-    background: C.teal,
-    width: 8,
-    height: 8,
-    display: 'inline-block',
-    marginRight: 6,
-    verticalAlign: 'middle'
-  }
-}), label), /*#__PURE__*/React.createElement("div", {
+  className: "article-card-lab-dot"
+}), /*#__PURE__*/React.createElement("span", {
+  className: "article-card-lab-text"
+}, label)), /*#__PURE__*/React.createElement("div", {
+  className: "article-card-thumb",
   style: {
     background: C.darkGray,
     aspectRatio: '16/9',
@@ -1761,6 +1792,7 @@ const ArticleCard = ({
 const NewToElasticPanel = ({
   onNav,
   showArrow = false,
+  fullWidth = false,
   calloutX,
   calloutY,
   arrowX,
@@ -1778,7 +1810,13 @@ const NewToElasticPanel = ({
   if (arrowRotate) arrowVars['--arrow-rotate'] = arrowRotate;
   return /*#__PURE__*/React.createElement("div", {
     className: "intro-callout-wrap",
-    style: wrapVars
+    style: {
+      ...wrapVars,
+      ...(fullWidth ? {
+        display: 'block',
+        width: '100%'
+      } : {})
+    }
   }, showArrow && /*#__PURE__*/React.createElement("span", {
     className: "intro-callout-arrow",
     style: arrowVars,
@@ -1794,6 +1832,9 @@ const NewToElasticPanel = ({
     fill: "black"
   }))), /*#__PURE__*/React.createElement("a", {
     className: "intro-callout",
+    style: fullWidth ? {
+      width: '100%'
+    } : undefined,
     href: "#",
     onClick: e => {
       e.preventDefault();
@@ -1822,16 +1863,17 @@ const NewToElasticPanel = ({
 const FinalCTA = () => /*#__PURE__*/React.createElement("section", {
   className: "pad-x",
   style: {
-    paddingTop: 64,
-    paddingBottom: 64
+    paddingTop: 48,
+    paddingBottom: 48
   }
 }, /*#__PURE__*/React.createElement("div", {
   className: "cta-grid",
   style: {
     background: C.darkInk,
     color: C.white,
-    padding: 48,
-    position: 'relative'
+    padding: 40,
+    position: 'relative',
+    alignItems: 'center'
   }
 }, /*#__PURE__*/React.createElement("div", {
   style: {
@@ -1843,15 +1885,7 @@ const FinalCTA = () => /*#__PURE__*/React.createElement("section", {
     borderTop: `12px solid ${C.teal}`,
     borderLeft: '12px solid transparent'
   }
-}), /*#__PURE__*/React.createElement("div", {
-  style: {
-    display: 'flex',
-    alignItems: 'center',
-    justifyContent: 'center'
-  }
-}, /*#__PURE__*/React.createElement(LabsOrb, {
-  s: 120
-})), /*#__PURE__*/React.createElement("div", null, /*#__PURE__*/React.createElement("h3", {
+}), /*#__PURE__*/React.createElement("div", null, /*#__PURE__*/React.createElement("h3", {
   className: "font-display h2-md",
   style: {
     margin: 0,
@@ -1868,6 +1902,7 @@ const FinalCTA = () => /*#__PURE__*/React.createElement("section", {
     maxWidth: 800
   }
 }, "Sufficiently advanced search isn't achieved with the efforts of one. Elasticsearch is powered by data scientists, ML ops, engineers, and many more who are just as passionate about search as you are. Let's connect and work together to build the magical search experience that will get you the results you want."), /*#__PURE__*/React.createElement("div", {
+  className: "cta-buttons",
   style: {
     display: 'flex',
     gap: 12,
@@ -1923,6 +1958,7 @@ const HeroSection = ({
 }, /*#__PURE__*/React.createElement(Icon.Left, {
   s: 16
 }), " Breadcrumb"), /*#__PURE__*/React.createElement("div", {
+  className: "hero-grid",
   style: {
     display: 'grid',
     gridTemplateColumns: right ? '1.5fr 1fr' : '1fr auto',
@@ -1944,7 +1980,7 @@ const HeroSection = ({
   }
 }, "//"), title), subtitle && /*#__PURE__*/React.createElement("p", {
   style: {
-    fontSize: 16,
+    fontSize: 18,
     lineHeight: 1.6,
     color: C.darkInk,
     maxWidth: 720
@@ -2118,7 +2154,7 @@ const HomePage = ({
       height: 12,
       display: 'inline-block'
     }
-  }), "Author Name"))), /*#__PURE__*/React.createElement("ul", {
+  }), "Author Name"))), /*#__PURE__*/React.createElement("div", null, /*#__PURE__*/React.createElement("ul", {
     className: "side-rows",
     style: {
       listStyle: 'none',
@@ -2142,11 +2178,10 @@ const HomePage = ({
   }, /*#__PURE__*/React.createElement("div", {
     className: "side-row-thumb",
     style: {
-      background: C.darkGray,
+      background: C.mediumGray,
       width: 160,
       height: 90,
       border: `1px solid ${C.darkInk}`,
-      opacity: 0.6,
       flexShrink: 0
     }
   }), /*#__PURE__*/React.createElement("div", {
@@ -2193,12 +2228,7 @@ const HomePage = ({
       height: 12,
       display: 'inline-block'
     }
-  }), "Author Name"))))))), /*#__PURE__*/React.createElement("div", {
-    style: {
-      marginTop: 32,
-      textAlign: 'center'
-    }
-  }, /*#__PURE__*/React.createElement("button", {
+  }), "Author Name")))))), /*#__PURE__*/React.createElement("button", {
     onClick: () => onNav('blog'),
     style: {
       background: 'none',
@@ -2208,10 +2238,15 @@ const HomePage = ({
       fontWeight: 600,
       display: 'inline-flex',
       alignItems: 'center',
-      gap: 10
+      gap: 10,
+      marginTop: 8,
+      padding: 0,
+      cursor: 'pointer'
     },
     className: "link-underline"
-  }, /*#__PURE__*/React.createElement(Icon.Right, null), " All articles"))), /*#__PURE__*/React.createElement("section", {
+  }, /*#__PURE__*/React.createElement(Icon.Right, {
+    s: 20
+  }), " All articles")))), /*#__PURE__*/React.createElement("section", {
     className: "pad-x",
     style: {
       paddingTop: 64,
@@ -2288,7 +2323,8 @@ const HomePage = ({
       lineHeight: 1.5
     }
   }, item.desc)))), /*#__PURE__*/React.createElement(NewToElasticPanel, {
-    showArrow: true
+    showArrow: true,
+    fullWidth: true
   }))), /*#__PURE__*/React.createElement("section", {
     className: "pad-x",
     style: {
@@ -2349,10 +2385,12 @@ const HomePage = ({
       padding: 20
     }
   }, /*#__PURE__*/React.createElement("h4", {
-    className: "font-display t-h6",
+    className: "font-display",
     style: {
       margin: 0,
       marginBottom: 10,
+      fontSize: 20,
+      fontWeight: 500,
       color: C.darkInk
     }
   }, "Glossary"), /*#__PURE__*/React.createElement("p", {
@@ -2443,11 +2481,6 @@ const HomePage = ({
     },
     className: "link-underline"
   }, /*#__PURE__*/React.createElement(Icon.Right, null), " View all integrations")), /*#__PURE__*/React.createElement("div", {
-    style: {
-      borderTop: `2px solid ${C.teal}`,
-      marginBottom: 32
-    }
-  }), /*#__PURE__*/React.createElement("div", {
     className: "grid-3"
   }, integrations.map((it, i) => /*#__PURE__*/React.createElement("button", {
     key: i,
@@ -2523,9 +2556,11 @@ const ExamplesPanel = ({
       padding: '16px 16px 8px'
     }
   }, /*#__PURE__*/React.createElement("h4", {
-    className: "font-display t-h6",
+    className: "font-display",
     style: {
       margin: 0,
+      fontSize: 20,
+      fontWeight: 500,
       color: C.darkInk
     }
   }, title)), /*#__PURE__*/React.createElement("div", {
@@ -2561,8 +2596,8 @@ const ExamplesPanel = ({
       className: "font-display exp-item-title",
       style: {
         display: 'block',
-        fontSize: 14,
-        fontWeight: 600,
+        fontSize: 16,
+        fontWeight: 500,
         color: C.darkInk,
         marginBottom: 8
       }
@@ -2954,7 +2989,9 @@ const TutorialsPage = ({
       className: "link-underline"
     }, "blog"), " to see learn how our experts suggest taking your search experience even further."),
     right: /*#__PURE__*/React.createElement(NewToElasticPanel, {
-      onNav: onNav
+      onNav: onNav,
+      calloutX: "88px",
+      calloutY: "53px"
     })
   }), /*#__PURE__*/React.createElement("section", {
     className: "pad-x",
@@ -3052,7 +3089,9 @@ const ExamplesPage = ({
     title: "Example",
     subtitle: "Practical how-to guides, interactive notebooks, and sample apps to get you started",
     right: /*#__PURE__*/React.createElement(NewToElasticPanel, {
-      onNav: onNav
+      onNav: onNav,
+      calloutX: "88px",
+      calloutY: "53px"
     })
   }), /*#__PURE__*/React.createElement("section", {
     className: "pad-x",
@@ -3096,10 +3135,12 @@ const ExamplesPage = ({
       padding: 20
     }
   }, /*#__PURE__*/React.createElement("h4", {
-    className: "font-display t-h6",
+    className: "font-display",
     style: {
       margin: 0,
       marginBottom: 10,
+      fontSize: 20,
+      fontWeight: 500,
       color: C.darkInk
     }
   }, "Glossary"), /*#__PURE__*/React.createElement("p", {
@@ -3157,8 +3198,7 @@ const IntegrationsPage = ({
   }))];
   return /*#__PURE__*/React.createElement(React.Fragment, null, /*#__PURE__*/React.createElement(HeroSection, {
     title: "Integrations",
-    subtitle: "Practical how-to guides, interactive notebooks, and sample apps to get you started",
-    right: /*#__PURE__*/React.createElement(LabsOrb, null)
+    subtitle: "Practical how-to guides, interactive notebooks, and sample apps to get you started"
   }), /*#__PURE__*/React.createElement("section", {
     className: "pad-x",
     style: {
@@ -3167,13 +3207,7 @@ const IntegrationsPage = ({
       background: C.white
     }
   }, /*#__PURE__*/React.createElement("div", {
-    style: {
-      display: 'flex',
-      gap: 4,
-      marginBottom: 24,
-      overflowX: 'auto',
-      paddingBottom: 4
-    }
+    className: "cat-tabs"
   }, cats.map(c => /*#__PURE__*/React.createElement("button", {
     key: c,
     onClick: () => setActive(c),
@@ -3255,33 +3289,77 @@ const BlogArticlePage = ({
       borderTop: `1px solid ${C.teal}`
     }
   }, /*#__PURE__*/React.createElement("div", {
-    className: "flex-mob-col",
+    className: "flex-mob-col font-mono",
     style: {
       display: 'flex',
       justifyContent: 'space-between',
       alignItems: 'center',
-      fontFamily: 'Space Mono, monospace',
-      fontSize: 11,
+      fontSize: 12,
       textTransform: 'uppercase',
       letterSpacing: '0.05em',
       color: C.darkInk,
-      opacity: 0.75,
       gap: 12,
       flexWrap: 'wrap'
     }
-  }, /*#__PURE__*/React.createElement("div", {
+  }, /*#__PURE__*/React.createElement("span", null, "JUNE 01, 2026"), /*#__PURE__*/React.createElement("span", {
     style: {
-      display: 'flex',
-      gap: 20,
+      display: 'inline-flex',
+      alignItems: 'center',
+      gap: 6
+    }
+  }, /*#__PURE__*/React.createElement("span", {
+    style: {
+      background: C.darkGray,
+      width: 12,
+      height: 12,
+      display: 'inline-block'
+    }
+  }), "Author Name,", /*#__PURE__*/React.createElement("span", {
+    style: {
+      background: C.darkGray,
+      width: 12,
+      height: 12,
+      display: 'inline-block',
+      marginLeft: 6
+    }
+  }), "Author Name"), /*#__PURE__*/React.createElement("span", {
+    style: {
+      display: 'inline-flex',
+      gap: 8,
       flexWrap: 'wrap'
     }
-  }, /*#__PURE__*/React.createElement("span", null, "JUNE 01, 2026"), /*#__PURE__*/React.createElement("span", null, "Author Name, Author Name")), /*#__PURE__*/React.createElement("div", {
+  }, /*#__PURE__*/React.createElement(Tag, {
+    onNav: onNav
+  }, "Agentic AI"), /*#__PURE__*/React.createElement(Tag, {
+    onNav: onNav
+  }, ".NET"), /*#__PURE__*/React.createElement(Tag, {
+    onNav: onNav
+  }, "Developer Experience"))), /*#__PURE__*/React.createElement("svg", {
+    width: "100%",
+    height: "16",
     style: {
-      display: 'flex',
-      gap: 12,
-      flexWrap: 'wrap'
-    }
-  }, /*#__PURE__*/React.createElement("span", null, "AGENTIC AI"), /*#__PURE__*/React.createElement("span", null, ".NET"), /*#__PURE__*/React.createElement("span", null, "DEVELOPER EXPERIENCE")))), /*#__PURE__*/React.createElement("section", {
+      display: 'block',
+      marginTop: 16
+    },
+    "aria-hidden": "true"
+  }, /*#__PURE__*/React.createElement("defs", null, /*#__PURE__*/React.createElement("pattern", {
+    id: "metaHatch",
+    width: "6",
+    height: "16",
+    patternUnits: "userSpaceOnUse",
+    patternTransform: "rotate(45)"
+  }, /*#__PURE__*/React.createElement("line", {
+    x1: "0",
+    y1: "0",
+    x2: "0",
+    y2: "16",
+    stroke: C.mediumGray,
+    strokeWidth: "1.5"
+  }))), /*#__PURE__*/React.createElement("rect", {
+    width: "100%",
+    height: "16",
+    fill: "url(#metaHatch)"
+  }))), /*#__PURE__*/React.createElement("section", {
     className: "pad-x",
     style: {
       paddingTop: '32px',
@@ -3541,8 +3619,7 @@ const CategoryPage = ({
   }));
   return /*#__PURE__*/React.createElement(React.Fragment, null, /*#__PURE__*/React.createElement(HeroSection, {
     title: "Category: Developer Experience",
-    subtitle: "Articles tagged Developer Experience",
-    right: /*#__PURE__*/React.createElement(LabsOrb, null)
+    subtitle: "Articles tagged Developer Experience"
   }), /*#__PURE__*/React.createElement("section", {
     className: "pad-x",
     style: {
@@ -3566,6 +3643,7 @@ const CategoryPage = ({
     excerpt: p.excerpt,
     date: p.date,
     label: i % 3 === 1 ? 'Observability Labs' : i % 3 === 2 ? 'Security Labs' : 'Elasticsearch Labs',
+    showLab: true,
     onClick: () => onNav('blogArticle'),
     onNav: onNav
   })))));
@@ -3722,8 +3800,7 @@ const BlogSeriesPage = ({
   }];
   return /*#__PURE__*/React.createElement(React.Fragment, null, /*#__PURE__*/React.createElement(HeroSection, {
     title: "Blog",
-    subtitle: "Developer insights and practical how-to articles from our experts to inspire and empower your search experience",
-    right: /*#__PURE__*/React.createElement(LabsOrb, null)
+    subtitle: "Developer insights and practical how-to articles from our experts to inspire and empower your search experience"
   }), /*#__PURE__*/React.createElement("section", {
     className: "pad-x",
     style: {
@@ -3848,7 +3925,9 @@ const IntegrationDetailPage = ({
     }
   }, /*#__PURE__*/React.createElement("div", {
     className: "sidebar-grid"
-  }, /*#__PURE__*/React.createElement("aside", null, /*#__PURE__*/React.createElement("div", {
+  }, /*#__PURE__*/React.createElement("aside", {
+    className: "hide-mob"
+  }, /*#__PURE__*/React.createElement("div", {
     className: "font-mono",
     style: {
       fontSize: 12,
@@ -3859,7 +3938,7 @@ const IntegrationDetailPage = ({
       marginBottom: 16,
       letterSpacing: '0.05em'
     }
-  }, "//TITLE HERE"), /*#__PURE__*/React.createElement("div", {
+  }, "// Integrations"), /*#__PURE__*/React.createElement("div", {
     style: {
       display: 'flex',
       flexDirection: 'column',
@@ -3875,21 +3954,7 @@ const IntegrationDetailPage = ({
       textUnderlineOffset: 3
     },
     className: "hover-underline"
-  }, p)))), /*#__PURE__*/React.createElement("article", null, /*#__PURE__*/React.createElement("div", {
-    className: "font-mono",
-    style: {
-      borderBottom: `1px dashed ${C.darkGray}`,
-      paddingBottom: 8,
-      marginBottom: 20,
-      fontSize: 11,
-      textTransform: 'uppercase',
-      color: C.darkInk,
-      display: 'flex',
-      justifyContent: 'space-between'
-    }
-  }, /*#__PURE__*/React.createElement("span", null, "/ Integration"), /*#__PURE__*/React.createElement(Icon.Add, {
-    s: 10
-  })), /*#__PURE__*/React.createElement("p", {
+  }, p)))), /*#__PURE__*/React.createElement("article", null, /*#__PURE__*/React.createElement("p", {
     className: "t-body",
     style: {
       color: C.darkInk,
@@ -3986,6 +4051,7 @@ const AuthorProfilePage = ({
       padding: 24
     }
   }, /*#__PURE__*/React.createElement("div", {
+    className: "author-avatar",
     style: {
       background: C.lightGray,
       aspectRatio: '1',
